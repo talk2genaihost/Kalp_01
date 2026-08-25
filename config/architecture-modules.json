@@ -1,0 +1,19 @@
+{
+  "modules": [
+    "core",
+    "context",
+    "smriti",
+    "self-mind",
+    "virodh",
+    "policy-security",
+    "runtime",
+    "swarm",
+    "learning",
+    "domain-adapters",
+    "applications",
+    "governance",
+    "persona",
+    "audit",
+    "infrastructure"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "precedence": [
+    "LOCKED",
+    "APPROVED",
+    "CANONICAL",
+    "ACTIVE",
+    "VERSIONED",
+    "SUPPORTING",
+    "CHAT_MEMORY",
+    "INFERENCE"
+  ]
+}

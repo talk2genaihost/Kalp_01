@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "domain",
+    "authority",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "authority": {
+      "type": "string",
+      "enum": [
+        "LOCKED",
+        "APPROVED",
+        "CANONICAL",
+        "ACTIVE",
+        "VERSIONED",
+        "SUPPORTING",
+        "CHAT_MEMORY",
+        "INFERENCE"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "string"
+    },
+    "supersessionState": {
+      "type": "string"
+    }
+  }
+}

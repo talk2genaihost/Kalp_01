@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KALPMessage",
+  "type": "object",
+  "required": [
+    "id",
+    "from",
+    "to",
+    "act",
+    "body",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "from": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "act": {
+      "type": "string",
+      "enum": [
+        "request",
+        "inform",
+        "propose",
+        "query",
+        "agree",
+        "refuse",
+        "done"
+      ]
+    },
+    "body": {},
+    "authorityLevel": {
+      "type": "string",
+      "enum": [
+        "LOCKED",
+        "APPROVED",
+        "CANONICAL",
+        "ACTIVE",
+        "VERSIONED",
+        "SUPPORTING",
+        "CHAT_MEMORY",
+        "INFERENCE"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cognitiveStage": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    }
+  }
+}

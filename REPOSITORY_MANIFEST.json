@@ -1,0 +1,32 @@
+{
+  "repository": "KALP OS",
+  "version": "1.0.0",
+  "status": "SOURCE-GOVERNED ARCHITECTURE BASELINE + STARTER CODE",
+  "authority_precedence": [
+    "LOCKED",
+    "APPROVED",
+    "CANONICAL",
+    "ACTIVE",
+    "VERSIONED",
+    "SUPPORTING",
+    "CHAT_MEMORY",
+    "INFERENCE"
+  ],
+  "domains": [
+    "core",
+    "governance",
+    "memory",
+    "context",
+    "self-mind",
+    "virodh",
+    "swarm",
+    "runtime",
+    "persona",
+    "workforce",
+    "learning",
+    "ecosystem",
+    "operations"
+  ],
+  "starter_code": "proof-of-concept",
+  "production_implementation": "pending"
+}
