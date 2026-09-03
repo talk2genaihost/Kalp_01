@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field, asdict
 from typing import Any, Literal
 from uuid import uuid4
@@ -43,15 +42,6 @@ class CapabilityRegistry:
             raise ValueError(f"capability already exists: {capability.capability_id}")
         data = asdict(capability)
         data["id"] = capability.capability_id
-        for field_name in (
-            "required_inputs",
-            "expected_outputs",
-            "constraints",
-            "authority_scope",
-            "escalation_conditions",
-            "provenance",
-        ):
-            data[field_name] = json.dumps(data[field_name], separators=(",", ":"), sort_keys=True)
         self.store.insert("capabilities", data)
 
     def get(self, capability_id: str) -> dict[str, Any] | None:
@@ -77,6 +67,7 @@ class CapabilityRegistry:
                 "escalation_conditions",
                 "provenance",
             ):
+                import json
                 result[field_name] = json.loads(result[field_name])
         return results
 
