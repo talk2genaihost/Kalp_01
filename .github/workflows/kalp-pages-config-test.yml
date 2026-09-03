@@ -1,0 +1,27 @@
+name: KALP Pages Configuration Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/weather-six-city-demo
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  pages-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Report Pages configuration
+        run: |
+          echo "KALP PAGES CONFIGURATION TEST: PASSED ACTION START"
+          echo "Base path: ${{ steps.pages.outputs.base_path }}"
+          echo "Origin: ${{ steps.pages.outputs.origin }}"
+          echo "URL: ${{ steps.pages.outputs.page_url }}"
