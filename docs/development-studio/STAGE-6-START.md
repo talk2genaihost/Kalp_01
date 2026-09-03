@@ -1,0 +1,1 @@
+Stage 6 start marker. Planner/router implementation must remain bounded by a derived DS-B010 contract and must not grant authorization or execute agents/tools.
