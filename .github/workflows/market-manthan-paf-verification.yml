@@ -1,0 +1,38 @@
+name: Market Manthan PAF Verification
+
+on:
+  push:
+    branches:
+      - feat/market-manthan-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paf-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        run: git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" repo
+
+      - name: Verify PAF Phase 3
+        working-directory: repo
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          import pathlib
+          import sys
+
+          root = pathlib.Path.cwd()
+          sys.path.insert(0, str(root))
+          test_path = root / "tests/market_manthan/test_paf_phase3.py"
+          spec = importlib.util.spec_from_file_location("test_paf_phase3", test_path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          tests = [name for name in dir(module) if name.startswith("test_")]
+          for name in tests:
+              getattr(module, name)()
+              print(f"PASS: {name}")
+          print(f"PAF Phase 3 verification passed: {len(tests)} tests")
+          PY
