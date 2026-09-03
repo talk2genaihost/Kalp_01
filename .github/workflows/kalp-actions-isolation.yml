@@ -1,0 +1,21 @@
+name: KALP Actions Isolation Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/weather-six-city-demo
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Native runner check
+        run: |
+          echo "KALP ACTIONS ISOLATION: RUNNER STARTED"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "SHA: $GITHUB_SHA"
