@@ -89,7 +89,7 @@ class RuntimeCoordinator:
             raise ValueError("RuntimeCoordinator requires an AGENT provider for Working-Agent runtime")
         if not request.authorized_scope:
             raise ValueError("authorized_scope is required")
-        if request.status not in {"READY", "CREATED"}:
+        if request.status != "REQUESTED":
             raise ValueError(f"execution request is not coordinatable in status {request.status}")
         if not request.provenance:
             raise ValueError("provenance is required")
