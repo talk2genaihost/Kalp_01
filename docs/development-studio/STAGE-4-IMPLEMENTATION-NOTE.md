@@ -1,0 +1,1 @@
+Stage 4 implementation is based on DS-B008 and remains VERSIONED / REGISTERED / ACTIVE CANDIDATE. Capability discovery metadata is persisted and queryable; authorization and invocation remain outside this subsystem.
