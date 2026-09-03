@@ -1,0 +1,30 @@
+PROJECT_TRANSITIONS = {
+    "CREATED": {"DISCOVERY", "BLOCKED", "AWAITING_CLARIFICATION"},
+    "DISCOVERY": {"REQUIREMENTS", "BLOCKED", "AWAITING_CLARIFICATION", "FAILED", "UNRESOLVED"},
+    "REQUIREMENTS": {"REQUIREMENTS_APPROVED", "BLOCKED", "AWAITING_CLARIFICATION", "FAILED", "UNRESOLVED"},
+    "REQUIREMENTS_APPROVED": {"ARCHITECTURE", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "ARCHITECTURE": {"DESIGN", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "DESIGN": {"IMPLEMENTATION_PLANNED", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "IMPLEMENTATION_PLANNED": {"IMPLEMENTING", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "IMPLEMENTING": {"BUILDING", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "BUILDING": {"TESTING", "BLOCKED", "FAILED", "UNRESOLVED", "UNAVAILABLE"},
+    "TESTING": {"VALIDATION", "BLOCKED", "FAILED", "UNRESOLVED", "UNAVAILABLE"},
+    "VALIDATION": {"RELEASE_READY", "BLOCKED", "FAILED", "UNRESOLVED"},
+    "RELEASE_READY": {"DELIVERED", "BLOCKED", "FAILED"},
+    "DELIVERED": set(),
+}
+TASK_TRANSITIONS = {
+    "PENDING": {"READY", "BLOCKED", "AWAITING_CLARIFICATION"},
+    "READY": {"ASSIGNED", "BLOCKED", "AWAITING_CLARIFICATION"},
+    "ASSIGNED": {"EXECUTING", "BLOCKED", "AWAITING_CLARIFICATION"},
+    "EXECUTING": {"COMPLETED", "FAILED", "BLOCKED", "UNRESOLVED"},
+    "COMPLETED": set(),
+}
+
+def validate_project_transition(current: str, target: str) -> None:
+    if target not in PROJECT_TRANSITIONS.get(current, set()):
+        raise ValueError(f"invalid project transition: {current} -> {target}")
+
+def validate_task_transition(current: str, target: str) -> None:
+    if target not in TASK_TRANSITIONS.get(current, set()):
+        raise ValueError(f"invalid task transition: {current} -> {target}")
