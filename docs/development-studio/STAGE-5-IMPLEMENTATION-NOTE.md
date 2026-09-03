@@ -1,0 +1,1 @@
+Stage 5 boundary: declarative Department / Working-Agent candidate routing only. Planner/router execution is a subsequent stage.
