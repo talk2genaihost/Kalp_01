@@ -42,6 +42,7 @@ class CapabilityRegistry:
         if self.store.get("capabilities", capability.capability_id) is not None:
             raise ValueError(f"capability already exists: {capability.capability_id}")
         data = asdict(capability)
+        data["id"] = capability.capability_id
         for field_name in (
             "required_inputs",
             "expected_outputs",
