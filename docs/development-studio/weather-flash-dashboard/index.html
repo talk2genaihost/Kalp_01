@@ -1,24 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KALP Weather Flash</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="header">
-      <div>
-        <div class="eyebrow">KALP DEVELOPMENT STUDIO</div>
-        <h1>Weather Flash</h1>
-        <p>6 cities · 6 days · live local clocks</p>
-      </div>
-      <button id="refresh" type="button">↻ Refresh</button>
+  <main class="dashboard">
+    <header class="hero">
+      <p class="eyebrow">KALP DEVELOPMENT STUDIO</p>
+      <h1>Weather Flash</h1>
+      <p>Six global cities · Six-day forecast · Live local time</p>
     </header>
-    <div id="status" class="status">Loading weather…</div>
-    <section id="dashboard" class="grid" aria-live="polite"></section>
-    <footer>Forecast source: Open-Meteo · Local time is resolved from each city's timezone.</footer>
+    <section id="weather-grid" class="weather-grid" aria-live="polite"></section>
   </main>
   <script src="app.js"></script>
 </body>
