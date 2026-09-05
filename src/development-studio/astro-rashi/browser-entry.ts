@@ -1,18 +1,41 @@
 import { createAstroRashiRuntime } from "./runtime.js";
-import { demoHoroscopeProvider, unavailableCalculationProvider } from "./demo-provider.js";
-import { translations, rashiList, type Locale } from "./localization.js";
-import type { KundliResult } from "./domain.js";
+import {
+  demoHoroscopeProvider,
+  unavailableCalculationProvider,
+} from "./demo-provider.js";
+import { translations, rashis, type Locale } from "./localization.js";
+import type { Rashi } from "./domain.js";
 
-const runtime = createAstroRashiRuntime(demoHoroscopeProvider, unavailableCalculationProvider);
-const localeMap: Record<string, Locale> = { hi: "hi-IN", en: "en-IN" };
+interface KundliResult {
+  birthPlace: string;
+  lagna: string;
+  moonSign: string;
+  nakshatra: string;
+  tithi: string;
+  yoga: string;
+  karana: string;
+  sunSign: string;
+}
+
+const runtime = createAstroRashiRuntime(
+  demoHoroscopeProvider,
+  unavailableCalculationProvider,
+);
+
+const localeMap: Record<string, Locale> = {
+  hi: "hi-IN",
+  en: "en-IN",
+};
 
 const KUNDLI_ENDPOINT =
   "https://cfwrgalgscieddkcrtde.supabase.co/functions/v1/astro-kundli";
 const SUPABASE_URL = "https://cfwrgalgscieddkcrtde.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as
+  | string
+  | undefined;
 
 let locale: Locale = "hi-IN";
-let selectedRashi = rashiList[0];
+let selectedRashi: Rashi = rashis[0];
 let accessToken: string | null = null;
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -157,7 +180,7 @@ function mapKundli(payload: unknown): KundliResult {
         "sun_details.sign",
         "sun.sign",
       ]) ?? "—",
-  } as KundliResult;
+  };
 }
 
 function renderKundli(payload: unknown): void {
@@ -174,42 +197,42 @@ function renderKundli(payload: unknown): void {
     <div class="kundli-grid">
       <div class="kundli-item">
         <span class="kundli-item-label">जन्म स्थान</span>
-        <strong>${result.birthPlace}</strong>
+        <strong>${escapeHtml(result.birthPlace)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">लग्न</span>
-        <strong>${result.lagna}</strong>
+        <strong>${escapeHtml(result.lagna)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">चंद्र राशि</span>
-        <strong>${result.moonSign}</strong>
+        <strong>${escapeHtml(result.moonSign)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">नक्षत्र</span>
-        <strong>${result.nakshatra}</strong>
+        <strong>${escapeHtml(result.nakshatra)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">तिथि</span>
-        <strong>${result.tithi}</strong>
+        <strong>${escapeHtml(result.tithi)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">योग</span>
-        <strong>${result.yoga}</strong>
+        <strong>${escapeHtml(result.yoga)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">करण</span>
-        <strong>${result.karana}</strong>
+        <strong>${escapeHtml(result.karana)}</strong>
       </div>
 
       <div class="kundli-item">
         <span class="kundli-item-label">सूर्य राशि</span>
-        <strong>${result.sunSign}</strong>
+        <strong>${escapeHtml(result.sunSign)}</strong>
       </div>
     </div>
 
@@ -276,43 +299,43 @@ function renderRashis(): void {
 
   grid.innerHTML = "";
 
-  rashiList.forEach(
-    (rashi: (typeof rashiList)[number], index: number) => {
-      const button = document.createElement("button");
+  rashis.forEach((rashi: Rashi, index: number) => {
+    const button = document.createElement("button");
 
-      button.type = "button";
-      button.className = "rashi";
-      button.setAttribute(
-        "aria-pressed",
-        String(rashi.id === selectedRashi.id),
-      );
+    button.type = "button";
+    button.className = "rashi";
+    button.setAttribute(
+      "aria-pressed",
+      String(rashi.id === selectedRashi.id),
+    );
 
-      button.innerHTML = `
-        <span class="rashi-symbol">${rashi.symbol}</span>
-        <span class="rashi-name">${rashi.names[locale]}</span>
-        <span class="rashi-index">${index + 1} / 12</span>
-      `;
+    button.innerHTML = `
+      <span class="rashi-symbol">${rashi.symbol}</span>
+      <span class="rashi-name">${rashi.names[locale]}</span>
+      <span class="rashi-index">${index + 1} / 12</span>
+    `;
 
-      button.addEventListener("click", () => {
-        selectedRashi = rashi;
-        renderRashis();
-        renderWeekly();
-      });
+    button.addEventListener("click", () => {
+      selectedRashi = rashi;
+      renderRashis();
+      renderWeekly();
+    });
 
-      grid.appendChild(button);
-    },
-  );
+    grid.appendChild(button);
+  });
 }
 
 function renderWeekly(): void {
-  const content = runtime.getWeeklyHoroscope(selectedRashi.id, locale);
+  const content = runtime.weekly(selectedRashi.id, locale);
 
   $("selectedName").textContent = selectedRashi.names[locale];
-  $("weeklyText").textContent = content;
+  $("weeklyText").textContent = content.summary;
   $("selectedRashiLabel").textContent =
     `${selectedRashi.names[locale]} — चयनित राशि`;
   $("selectedRashiHint").textContent =
-    translations[locale].selectedRashiHint;
+    locale === "hi-IN"
+      ? "साप्ताहिक राशिफल देखने के लिए राशि चुनें।"
+      : "Select a Rashi to view the weekly horoscope.";
 }
 
 function bind(): void {
