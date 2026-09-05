@@ -3,8 +3,8 @@
 - Project: `KALP-PROJ-ASTRO-RASHI-001`
 - Repository: `talk2genaihost/Kalp_01`
 - Branch: `main`
-- Verification scope: TypeScript build, Astro Rashi browser build, test suite
-- Trace status: `COMPLETED`
+- Verification scope: TypeScript build, Astro Rashi browser build, test suite, GitHub Pages deployment
+- Trace status: `PARTIAL`
 
 ## Verification contract
 
@@ -75,6 +75,15 @@ Classification: `RETRIEVED — user-provided GitHub Actions screenshot`.
 - Astro Rashi browser build: `success`.
 - Test suite: `success`.
 
+## Deployment remediation
+
+- Deployment workflow: `.github/workflows/astro-rashi-pages.yml`.
+- Deployment commit: `6c966a744d534c8cac444c285bd16b9ebefe6d03`.
+- The workflow builds the Astro Rashi browser slice, assembles it under `astro-rashi/`, preserves the existing Weather application, and publishes the static site to the `gh-pages` branch.
+- The Vite base path is configured for `/Kalp_01/astro-rashi/` during GitHub Actions builds.
+- Deployment execution: `PENDING — workflow triggered by the deployment commit`.
+- Live URL validation: `PENDING`.
+
 ## Result classification
 
 - Startup diagnostic: `COMPLETED`
@@ -85,12 +94,15 @@ Classification: `RETRIEVED — user-provided GitHub Actions screenshot`.
 - TypeScript build: `COMPLETED`
 - Astro Rashi browser build: `COMPLETED`
 - Test suite: `COMPLETED`
-- Overall verification: `COMPLETED`
+- Deployment workflow configuration: `COMPLETED`
+- Deployment execution: `PENDING`
+- Live URL validation: `PENDING`
+- Overall verification: `PARTIAL`
 
 ## Interpretation
 
-The workflow policy restriction was resolved by removing disallowed external actions. The dependency-installation failure was resolved by using `npm install --no-audit --no-fund` in the absence of a lockfile. The subsequent workflow execution completed successfully through dependency installation, TypeScript compilation, browser build, and tests.
+The application build and tests are verified. The previous 404 was a deployment/publication issue rather than an application build failure. A repository-native Pages deployment workflow has now been committed; its run and the live URL still require confirmation.
 
 ## Next action
 
-Verification is complete for the current implementation scope. Preserve the successful run as the baseline for subsequent changes. Any future code or workflow change must produce a new verification run before being marked complete.
+Inspect the deployment workflow run, confirm the `gh-pages` publication, then revalidate `https://talk2genaihost.github.io/Kalp_01/astro-rashi/`. Mark deployment complete only after the live page responds successfully.
