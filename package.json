@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts",
+    "dev:astro-rashi": "vite",
     "build": "tsc",
+    "build:astro-rashi": "vite build",
     "test": "tsx --test tests/**/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vite": "^7.0.0"
   }
 }
