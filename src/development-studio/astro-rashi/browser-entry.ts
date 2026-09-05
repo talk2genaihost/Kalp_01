@@ -16,24 +16,14 @@ const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) 
 
 async function getAnonymousAccessToken(): Promise<string> {
   if (accessToken) return accessToken;
-  if (!SUPABASE_ANON_KEY) {
-    throw new Error("Supabase browser key is not configured in this deployment.");
-  }
-
+  if (!SUPABASE_ANON_KEY) throw new Error("Supabase browser key is not configured in this deployment.");
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON_KEY
-    },
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
     body: JSON.stringify({})
   });
-
   const result = await response.json() as { access_token?: string; error_description?: string; msg?: string };
-  if (!response.ok || !result.access_token) {
-    throw new Error(result.error_description || result.msg || `Authentication failed with HTTP ${response.status}`);
-  }
-
+  if (!response.ok || !result.access_token) throw new Error(result.error_description || result.msg || `Authentication failed with HTTP ${response.status}`);
   accessToken = result.access_token;
   return accessToken;
 }
@@ -49,44 +39,36 @@ function render(): void {
   byId("placeLabel").textContent = t.placeOfBirth;
   byId("askButton").textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त करें" : "Get Kundli data";
   byId("demoNotice").textContent = t.demoNotice;
+  byId("chooseTitle").textContent = locale === "hi-IN" ? "अपनी राशि चुनें" : "Choose your Rashi";
+  byId("selectedRashiLabel").textContent = locale === "hi-IN" ? "चयनित राशि" : "Selected Rashi";
+  byId("selectedRashiHint").textContent = locale === "hi-IN" ? "राशि चुनने पर उसका साप्ताहिक संदेश यहाँ दिखाई देगा।" : "Select a Rashi to view its weekly message.";
 
   const grid = byId<HTMLDivElement>("rashiGrid");
-  grid.replaceChildren(...rashis.map((rashi) => {
+  grid.replaceChildren(...rashis.map((rashi, index) => {
     const button = document.createElement("button");
     button.className = "rashi";
     button.type = "button";
-    button.textContent = `${rashi.symbol} ${rashi.names[locale]}`;
+    button.innerHTML = `<span class="rashi-symbol">${rashi.symbol}</span><span class="rashi-name">${rashi.names[locale]}</span><span class="rashi-index">${index + 1} / 12</span>`;
     button.setAttribute("aria-pressed", String(rashi.id === selected));
-    button.addEventListener("click", () => {
-      selected = rashi.id;
-      render();
-    });
+    button.addEventListener("click", () => { selected = rashi.id; render(); });
     return button;
   }));
 
+  const selectedRashi = rashis.find((rashi) => rashi.id === selected);
   const weekly = runtime.weekly(selected, locale);
-  byId("selectedName").textContent = rashis.find((rashi) => rashi.id === selected)?.names[locale] ?? "";
+  byId("selectedName").textContent = selectedRashi?.names[locale] ?? "";
   byId("weeklyText").textContent = weekly.summary;
-}
-
-function displayValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
 }
 
 function renderKundliResult(data: unknown, place: string): void {
   const output = byId<HTMLDivElement>("answer");
   output.replaceChildren();
-
   const heading = document.createElement("h3");
   heading.textContent = locale === "hi-IN" ? "वास्तविक वैदिक कुंडली" : "Live Vedic Kundli";
   output.appendChild(heading);
-
   const location = document.createElement("p");
   location.textContent = `${locale === "hi-IN" ? "जन्म स्थान" : "Birth place"}: ${place}`;
   output.appendChild(location);
-
   const pre = document.createElement("pre");
   pre.className = "kundli-json";
   pre.textContent = JSON.stringify(data, null, 2);
@@ -100,7 +82,6 @@ byId<HTMLSelectElement>("language").addEventListener("change", (event) => {
 
 byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-
   const output = byId<HTMLDivElement>("answer");
   const button = byId<HTMLButtonElement>("askButton");
   const date = byId<HTMLInputElement>("birthDate").value;
@@ -108,43 +89,23 @@ byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
   const place = byId<HTMLInputElement>("birthPlace").value.trim();
   const latitude = Number(byId<HTMLInputElement>("latitude").value);
   const longitude = Number(byId<HTMLInputElement>("longitude").value);
-
   output.hidden = false;
   output.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
   button.disabled = true;
   button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
-
   try {
     const token = await getAnonymousAccessToken();
     const response = await fetch(KUNDLI_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        datetime: `${date}T${time}:00+05:30`,
-        coordinates: `${latitude},${longitude}`
-      })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ datetime: `${date}T${time}:00+05:30`, coordinates: `${latitude},${longitude}` })
     });
-
-    const result = await response.json() as {
-      status?: string;
-      code?: string;
-      message?: string;
-      data?: unknown;
-    };
-
-    if (!response.ok || result.status !== "SUCCESS") {
-      throw new Error(result.message || result.code || `Request failed with HTTP ${response.status}`);
-    }
-
+    const result = await response.json() as { status?: string; code?: string; message?: string; data?: unknown };
+    if (!response.ok || result.status !== "SUCCESS") throw new Error(result.message || result.code || `Request failed with HTTP ${response.status}`);
     renderKundliResult(result.data, place);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown request error";
-    output.textContent = locale === "hi-IN"
-      ? `कुंडली डेटा प्राप्त नहीं हो सका।\n\n${message}`
-      : `Kundli data could not be retrieved.\n\n${message}`;
+    output.textContent = locale === "hi-IN" ? `कुंडली डेटा प्राप्त नहीं हो सका।\n\n${message}` : `Kundli data could not be retrieved.\n\n${message}`;
   } finally {
     button.disabled = false;
     button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त करें" : "Get Kundli data";
