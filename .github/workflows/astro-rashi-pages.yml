@@ -27,12 +27,21 @@ jobs:
       - name: Build Astro Rashi browser slice
         run: npm run build:astro-rashi
 
-      - name: Publish static site to gh-pages
+      - name: Preserve existing site and add Astro Rashi subpage
         run: |
           set -eu
           rm -rf /tmp/astro-rashi-site
           mkdir -p /tmp/astro-rashi-site
-          cp -R dist/astro-rashi/. /tmp/astro-rashi-site/
+          if git fetch origin gh-pages; then
+            git archive origin/gh-pages | tar -x -C /tmp/astro-rashi-site
+          fi
+          rm -rf /tmp/astro-rashi-site/astro-rashi
+          mkdir -p /tmp/astro-rashi-site/astro-rashi
+          cp -R dist/astro-rashi/. /tmp/astro-rashi-site/astro-rashi/
+
+      - name: Publish combined site to gh-pages
+        run: |
+          set -eu
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan gh-pages
@@ -40,5 +49,5 @@ jobs:
           cp -R /tmp/astro-rashi-site/. .
           touch .nojekyll
           git add .
-          git commit -m "Deploy Astro Rashi browser slice"
+          git commit -m "Publish Astro Rashi as a separate Pages subpath"
           git push --force origin gh-pages
