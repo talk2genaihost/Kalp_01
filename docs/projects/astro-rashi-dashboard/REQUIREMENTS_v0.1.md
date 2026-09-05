@@ -5,8 +5,9 @@
 - Project ID: `KALP-PROJ-ASTRO-RASHI-001`
 - Project name: Astro Rashi Dashboard
 - Parent system: KALP Development Studio
-- Status: PROPOSED
-- Requirement status: DRAFT / PENDING_APPROVAL
+- Status: APPROVED
+- Requirement status: APPROVED BY PROJECT OWNER
+- Approval decision: Explicit user approval recorded on 2026-09-05
 - Platform: Web-first, Android-ready
 - Deployment mode: HYBRID (proposed)
 - Initial locales: `hi-IN`, `en-IN`
