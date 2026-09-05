@@ -3,8 +3,8 @@ import {
   demoHoroscopeProvider,
   unavailableCalculationProvider,
 } from "./demo-provider.js";
-import { translations, rashis, type Locale } from "./localization.js";
-import type { Rashi } from "./domain.js";
+import { translations, rashis } from "./localization.js";
+import type { Locale, Rashi } from "./domain.js";
 
 interface KundliResult {
   birthPlace: string;
