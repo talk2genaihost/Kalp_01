@@ -10,8 +10,7 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ github.token }}
-
-jobs:
+\ njobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -21,33 +20,68 @@ jobs:
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
           git checkout "${GITHUB_SHA}"
 
+      - name: Preserve currently published pages
+        run: |
+          set -eu
+          rm -rf /tmp/current-pages
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/current-pages
+            rm -rf /tmp/current-pages/.git
+          else
+            mkdir -p /tmp/current-pages
+          fi
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
       - name: Build Astro Rashi browser slice
         run: npm run build:astro-rashi
 
-      - name: Preserve existing site and add Astro Rashi subpage
+      - name: Assemble separate application pages
         run: |
           set -eu
-          rm -rf /tmp/astro-rashi-site
-          mkdir -p /tmp/astro-rashi-site
-          if git fetch origin gh-pages; then
-            git archive origin/gh-pages | tar -x -C /tmp/astro-rashi-site
-          fi
-          rm -rf /tmp/astro-rashi-site/astro-rashi
-          mkdir -p /tmp/astro-rashi-site/astro-rashi
-          cp -R dist/astro-rashi/. /tmp/astro-rashi-site/astro-rashi/
+          rm -rf /tmp/published-site
+          mkdir -p /tmp/published-site
 
-      - name: Publish combined site to gh-pages
+          if [ -f /tmp/current-pages/index.html ]; then
+            mkdir -p /tmp/published-site/weather-dashboard
+            cp -R /tmp/current-pages/. /tmp/published-site/weather-dashboard/
+          fi
+
+          mkdir -p /tmp/published-site/astro-rashi
+          cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
+
+          cat > /tmp/published-site/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>KALP Applications</title>
+            </head>
+            <body>
+              <h1>KALP Applications</h1>
+              <ul>
+                <li><a href="./weather-dashboard/">Weather Dashboard</a></li>
+                <li><a href="./astro-rashi/">Astro Rashi Dashboard</a></li>
+              </ul>
+            </body>
+          </html>
+          EOF
+
+          touch /tmp/published-site/.nojekyll
+
+      - name: Publish static site to gh-pages
         run: |
           set -eu
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf /tmp/deploy-repo
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/deploy-repo
+          cd /tmp/deploy-repo
           git checkout --orphan gh-pages
           git rm -rf . || true
-          cp -R /tmp/astro-rashi-site/. .
-          touch .nojekyll
+          cp -R /tmp/published-site/. .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Publish Astro Rashi as a separate Pages subpath"
+          git commit -m "Publish separate Weather and Astro Rashi pages"
           git push --force origin gh-pages
