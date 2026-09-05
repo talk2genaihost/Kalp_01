@@ -6,10 +6,34 @@ import type { Locale, RashiId } from "./domain.js";
 const runtime = createAstroRashiRuntime(demoHoroscopeProvider, unavailableCalculationProvider);
 const localeMap: Record<string, Locale> = { hi: "hi-IN", en: "en-IN" };
 const KUNDLI_ENDPOINT = "https://cfwrgalgscieddkcrtde.supabase.co/functions/v1/astro-kundli";
+const SUPABASE_URL = "https://cfwrgalgscieddkcrtde.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmd3JnYWxnc2NpZWRka2NydGRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MDQyNzYsImV4cCI6MjEwNDE4MDI3Nn0.TwAdY3JdepMp5IFmmogcXJI4VyhN9Yx5iLxqQG7wqrw";
 let locale: Locale = "hi-IN";
 let selected: RashiId = rashis[0].id;
+let accessToken: string | null = null;
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+async function getAnonymousAccessToken(): Promise<string> {
+  if (accessToken) return accessToken;
+
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({})
+  });
+
+  const result = await response.json() as { access_token?: string; error_description?: string; msg?: string };
+  if (!response.ok || !result.access_token) {
+    throw new Error(result.error_description || result.msg || `Authentication failed with HTTP ${response.status}`);
+  }
+
+  accessToken = result.access_token;
+  return accessToken;
+}
 
 function render(): void {
   const t = translations[locale];
@@ -63,9 +87,13 @@ byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
   button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
 
   try {
+    const token = await getAnonymousAccessToken();
     const response = await fetch(KUNDLI_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       body: JSON.stringify({
         datetime: `${date}T${time}:00+05:30`,
         coordinates: `${latitude},${longitude}`
