@@ -101,17 +101,24 @@ function readPath(root: unknown, paths: string[]): string | null {
 }
 
 function providerData(payload: unknown): unknown {
-  if (!payload || typeof payload !== "object") {
-    return payload;
+  let current = payload;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (!current || typeof current !== "object") {
+      return current;
+    }
+
+    const record = current as Record<string, unknown>;
+
+    if (!record.data || typeof record.data !== "object") {
+      return current;
+    }
+
+    current = record.data;
   }
 
-  const record = payload as Record<string, unknown>;
-
-  return record.data && typeof record.data === "object"
-    ? record.data
-    : payload;
+  return current;
 }
-
 function mapKundli(payload: unknown): KundliResult {
   const data = providerData(payload);
 
