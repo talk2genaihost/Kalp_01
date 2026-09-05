@@ -28,10 +28,8 @@ jobs:
           mkdir -p /tmp/current-weather
           if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
             git clone --depth 1 --branch gh-pages "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/current-pages
-            if [ -d /tmp/current-pages/weather-dashboard ]; then
+            if [ -d /tmp/current-pages/weather-dashboard ] && [ -f /tmp/current-pages/weather-dashboard/index.html ]; then
               cp -R /tmp/current-pages/weather-dashboard/. /tmp/current-weather/
-            elif [ -f /tmp/current-pages/index.html ]; then
-              cp -R /tmp/current-pages/. /tmp/current-weather/
             fi
           fi
 
