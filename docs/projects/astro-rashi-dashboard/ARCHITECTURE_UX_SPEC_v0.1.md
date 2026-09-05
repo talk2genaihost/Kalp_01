@@ -5,8 +5,9 @@
 - Project ID: `KALP-PROJ-ASTRO-RASHI-001`
 - Artifact ID: `ASTRO-RASHI-ARCH-UX-001`
 - Version: `0.1`
-- Status: PROPOSED
-- Authority: SUPPORTING project artifact; not a canonical KALP architecture contract
+- Status: APPROVED
+- Approval decision: Explicit user approval recorded on 2026-09-05
+- Authority: APPROVED project artifact; not a canonical KALP architecture contract
 - Parent: KALP Development Studio
 
 ## 2. Architectural principles
