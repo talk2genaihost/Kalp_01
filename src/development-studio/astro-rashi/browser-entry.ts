@@ -74,6 +74,27 @@ function firstValue(source: unknown, keys: string[]): string | null {
   return null;
 }
 
+function firstArray(source: unknown, keys: string[]): unknown[] | null {
+  if (!source || typeof source !== "object") return null;
+  const record = source as Record<string, unknown>;
+  for (const key of keys) if (Array.isArray(record[key])) return record[key] as unknown[];
+  for (const value of Object.values(record)) {
+    const nested = firstArray(value, keys);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function formatList(source: unknown, keys: string[]): string | null {
+  const values = firstArray(source, keys);
+  if (!values?.length) return null;
+  const labels = values.map((value) => {
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    return firstValue(value, ["name", "label", "planet", "graha", "sign", "rashi"]) ?? null;
+  }).filter((value): value is string => Boolean(value));
+  return labels.length ? labels.join(", ") : null;
+}
+
 function addResultItem(container: HTMLElement, label: string, value: string | null): void {
   if (!value) return;
   const item = document.createElement("div");
@@ -103,11 +124,14 @@ function renderKundliResult(data: unknown, place: string): void {
   const grid = document.createElement("div");
   grid.className = "kundli-grid";
   addResultItem(grid, locale === "hi-IN" ? "जन्म स्थान" : "Birth place", place);
-  addResultItem(grid, locale === "hi-IN" ? "लग्न" : "Ascendant", firstValue(data, ["ascendant", "lagna", "ascendant_name"]));
-  addResultItem(grid, locale === "hi-IN" ? "चंद्र राशि" : "Moon sign", firstValue(data, ["moon_sign", "moonSign", "rashi", "chandra_rashi"]));
-  addResultItem(grid, locale === "hi-IN" ? "नक्षत्र" : "Nakshatra", firstValue(data, ["nakshatra", "birth_star", "birthStar"]));
-  addResultItem(grid, locale === "hi-IN" ? "तिथि" : "Tithi", firstValue(data, ["tithi"]));
-  addResultItem(grid, locale === "hi-IN" ? "योग" : "Yoga", firstValue(data, ["yoga"]));
+  addResultItem(grid, locale === "hi-IN" ? "लग्न" : "Ascendant", firstValue(data, ["ascendant", "lagna", "ascendant_name", "ascendantSign"]));
+  addResultItem(grid, locale === "hi-IN" ? "चंद्र राशि" : "Moon sign", firstValue(data, ["moon_sign", "moonSign", "rashi", "chandra_rashi", "moonRashi"]));
+  addResultItem(grid, locale === "hi-IN" ? "नक्षत्र" : "Nakshatra", firstValue(data, ["nakshatra", "birth_star", "birthStar", "janma_nakshatra"]));
+  addResultItem(grid, locale === "hi-IN" ? "तिथि" : "Tithi", firstValue(data, ["tithi", "lunar_day", "lunarDay"]));
+  addResultItem(grid, locale === "hi-IN" ? "योग" : "Yoga", firstValue(data, ["yoga", "panchang_yoga"]));
+  addResultItem(grid, locale === "hi-IN" ? "करण" : "Karana", firstValue(data, ["karana", "panchang_karana"]));
+  addResultItem(grid, locale === "hi-IN" ? "सूर्य राशि" : "Sun sign", firstValue(data, ["sun_sign", "sunSign", "surya_rashi"]));
+  addResultItem(grid, locale === "hi-IN" ? "ग्रह स्थिति" : "Planetary positions", formatList(data, ["planets", "planetary_positions", "grahas", "planetPositions"]));
   output.appendChild(grid);
 
   const details = document.createElement("details");
