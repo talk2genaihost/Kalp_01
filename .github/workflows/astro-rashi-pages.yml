@@ -11,6 +11,7 @@ permissions:
 env:
   GITHUB_TOKEN: ${{ github.token }}
   WEATHER_SOURCE_BRANCH: main
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
 jobs:
   deploy:
