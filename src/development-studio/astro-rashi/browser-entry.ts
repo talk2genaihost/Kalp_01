@@ -1,8 +1,9 @@
 import { rashis, translations } from "./localization.js";
 import { createAstroRashiRuntime } from "./runtime.js";
+import { demoHoroscopeProvider, unavailableCalculationProvider } from "./demo-provider.js";
 import type { Locale, RashiId } from "./domain.js";
 
-const runtime = createAstroRashiRuntime();
+const runtime = createAstroRashiRuntime(demoHoroscopeProvider, unavailableCalculationProvider);
 const localeMap: Record<string, Locale> = { hi: "hi-IN", en: "en-IN" };
 let locale: Locale = "hi-IN";
 let selected: RashiId = rashis[0].id;
@@ -26,7 +27,7 @@ function render(): void {
     const button = document.createElement("button");
     button.className = "rashi";
     button.type = "button";
-    button.textContent = rashi.names[locale];
+    button.textContent = `${rashi.symbol} ${rashi.names[locale]}`;
     button.setAttribute("aria-pressed", String(rashi.id === selected));
     button.addEventListener("click", () => {
       selected = rashi.id;
