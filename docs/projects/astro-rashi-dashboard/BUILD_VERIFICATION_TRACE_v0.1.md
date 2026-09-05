@@ -80,7 +80,7 @@ Classification: `RETRIEVED — user-provided GitHub Actions screenshot`.
 - Deployment workflow: `.github/workflows/astro-rashi-pages.yml`.
 - Previous deployment commit: `6c966a744d534c8cac444c285bd16b9ebefe6d03`.
 - Separation-fix commit: `6abd839675e0e4c2add21c5fd41f37db60a3782c`.
-- The workflow now restores the Weather application from the dedicated `feat/weather-six-city-demo` source branch, builds Astro Rashi separately, assembles both under `weather-dashboard/` and `astro-rashi/`, and publishes the static site to `gh-pages`.
+- The workflow restores the Weather application from the dedicated `feat/weather-six-city-demo` source branch, builds Astro Rashi separately, assembles both under `weather-dashboard/` and `astro-rashi/`, and publishes the static site to `gh-pages`.
 - Deployment run: `33952226833`.
 - Deployment job: `deploy` (`101269041691`).
 - Deployment status: `completed`.
@@ -89,6 +89,16 @@ Classification: `RETRIEVED — user-provided GitHub Actions screenshot`.
 - Published Weather entrypoint verified on `gh-pages`: `weather-dashboard/index.html` contains the Weather Dashboard redirect, not the Astro Rashi page.
 - Published Astro Rashi entrypoint remains under `gh-pages/astro-rashi/index.html`.
 - Public URL validation: `PENDING — external URL fetch was unavailable in the current tool session`.
+
+## Remediation 3 — deployment preservation fetch
+
+- Failure run: `33943556285`.
+- Failure job: `deploy` (`101245412916`).
+- Root cause: the workflow executed `git fetch origin gh-pages`, which populated `FETCH_HEAD`, but then attempted `git archive origin/gh-pages`; the remote-tracking ref was absent in the shallow checkout, producing `fatal: not a valid object name: origin/gh-pages` and exit code 2.
+- Remediation commit: `cf6bcf2da9623c9c89224e5b3c313397d10c78ca`.
+- Changed workflow: `.github/workflows/astro-rashi-pages.yml`.
+- Corrective action: preserve the existing published site using the fetched `gh-pages` reference correctly before replacing only the Astro Rashi subdirectory.
+- Rerun status: `PENDING`.
 
 ## Result classification
 
@@ -101,21 +111,21 @@ Classification: `RETRIEVED — user-provided GitHub Actions screenshot`.
 - Astro Rashi browser build: `COMPLETED`
 - Test suite: `COMPLETED`
 - Deployment workflow configuration: `COMPLETED`
-- Deployment execution: `COMPLETED`
-- Application separation on `gh-pages`: `COMPLETED`
+- Deployment preservation failure diagnosis: `COMPLETED`
+- Deployment remediation: `COMPLETED`
+- Deployment execution after remediation 3: `PENDING`
+- Application separation on `gh-pages`: `COMPLETED` for the prior successful deployment; awaiting confirmation after remediation 3
 - Live URL validation: `PENDING`
 - Overall verification: `PARTIAL`
 
 ## Interpretation
 
-The deployment workflow and application separation are now verified. The Weather application is sourced from its dedicated branch rather than copied from the previously corrupted published directory. GitHub Actions completed the deployment successfully. The remaining verification item is an external browser check of the public URLs.
+The application builds and tests successfully. The remaining failure was in the deployment workflow's handling of the existing `gh-pages` reference, not in the Astro Rashi application. The workflow has now been corrected and must produce a new successful deployment before the public URL can be considered verified.
 
 ## Next action
 
-Open the public root URL and confirm both links independently:
+Wait for the new `Deploy Astro Rashi to GitHub Pages` run triggered by remediation commit `cf6bcf2da9623c9c89224e5b3c313397d10c78ca`. Confirm that its `deploy` job succeeds, then open and validate:
 
 - `https://talk2genaihost.github.io/Kalp_01/`
 - `https://talk2genaihost.github.io/Kalp_01/weather-dashboard/`
 - `https://talk2genaihost.github.io/Kalp_01/astro-rashi/`
-
-Mark live URL validation complete only after the browser confirms the expected page at each path.
