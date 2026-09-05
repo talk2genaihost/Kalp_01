@@ -8,34 +8,39 @@
 
 ## Verification contract
 
-The repository now contains a GitHub Actions workflow at `.github/workflows/astro-rashi-verification.yml`.
-
-The workflow is configured to execute:
+The repository contains `.github/workflows/astro-rashi-verification.yml`, configured to execute:
 
 1. `npm ci`
 2. `npm run build`
 3. `npm run build:astro-rashi`
 4. `npm test`
 
-## Evidence
+## Execution evidence
 
-- Workflow configuration committed in commit `1ac480dbe7cfba4d1dede3719b5e134221636a82`.
-- A workflow-run lookup for that commit returned no runs at the time this trace was recorded.
+- Workflow configuration commit: `1ac480dbe7cfba4d1dede3719b5e134221636a82`.
+- Verification run: `33938484268`.
+- Run URL: https://github.com/talk2genaihost/Kalp_01/actions/runs/33938484268
+- Head commit: `0757f8e70222ca445f02ae6ddbcee313ab16a51a`.
+- Status: `completed`.
+- Conclusion: `startup_failure`.
+- Jobs returned: `0`.
+- Step logs: unavailable.
 
 ## Result classification
 
 - Workflow configuration: `COMPLETED`
-- Dependency installation: `UNVERIFIED`
-- TypeScript build: `UNVERIFIED`
-- Astro Rashi browser build: `UNVERIFIED`
-- Test suite: `UNVERIFIED`
-- Failure resolution: `NOT APPLICABLE — no execution output available`
+- Workflow startup: `FAILED`
+- Dependency installation: `NOT REACHED`
+- TypeScript build: `NOT REACHED`
+- Astro Rashi browser build: `NOT REACHED`
+- Test suite: `NOT REACHED`
+- Failure resolution: `BLOCKED — no startup error or job logs exposed`
 - Overall verification: `PARTIAL`
 
-## Limitation
+## Interpretation
 
-The connected GitHub interface can create and inspect repository files and workflow results, but it did not provide a completed workflow run for this commit during this operation. Therefore, no build or test pass is claimed. Once GitHub Actions produces a run, update this trace with the run ID, job result, and any failure-resolution commits.
+This is an execution-platform/workflow startup failure, not an application build or test failure. Because GitHub exposed no job and no step log, there is insufficient evidence to identify a repository-level defect or safely apply a corrective code change.
 
-## Next verification action
+## Next action
 
-Run the `Astro Rashi Verification` workflow through GitHub Actions, then record the exact run URL/ID and step results here. If a step fails, fix the repository, rerun the workflow, and append the remediation commit and final result.
+Use the GitHub Actions UI or repository administration controls to inspect the startup diagnostic and confirm that Actions are enabled and permitted for `talk2genaihost/Kalp_01`. After a runnable job is produced, rerun the workflow, capture the job and step results, resolve any actual build/test failures, and append the remediation commit(s) here.
