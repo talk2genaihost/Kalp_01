@@ -5,6 +5,7 @@ import type { Locale, RashiId } from "./domain.js";
 
 const runtime = createAstroRashiRuntime(demoHoroscopeProvider, unavailableCalculationProvider);
 const localeMap: Record<string, Locale> = { hi: "hi-IN", en: "en-IN" };
+const KUNDLI_ENDPOINT = "https://cfwrgalgscieddkcrtde.supabase.co/functions/v1/astro-kundli";
 let locale: Locale = "hi-IN";
 let selected: RashiId = rashis[0].id;
 
@@ -19,7 +20,7 @@ function render(): void {
   byId("dateLabel").textContent = t.dateOfBirth;
   byId("timeLabel").textContent = t.timeOfBirth;
   byId("placeLabel").textContent = t.placeOfBirth;
-  byId("askButton").textContent = t.submit;
+  byId("askButton").textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त करें" : "Get Kundli data";
   byId("demoNotice").textContent = t.demoNotice;
 
   const grid = byId<HTMLDivElement>("rashiGrid");
@@ -46,16 +47,54 @@ byId<HTMLSelectElement>("language").addEventListener("change", (event) => {
   render();
 });
 
-byId<HTMLFormElement>("birthForm").addEventListener("submit", (event) => {
+byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const answer = runtime.basicAnswer({
-    dateOfBirth: byId<HTMLInputElement>("birthDate").value,
-    timeOfBirth: byId<HTMLInputElement>("birthTime").value,
-    placeOfBirth: byId<HTMLInputElement>("birthPlace").value
-  });
+
   const output = byId<HTMLParagraphElement>("answer");
+  const button = byId<HTMLButtonElement>("askButton");
+  const date = byId<HTMLInputElement>("birthDate").value;
+  const time = byId<HTMLInputElement>("birthTime").value;
+  const place = byId<HTMLInputElement>("birthPlace").value.trim();
+  const latitude = Number(byId<HTMLInputElement>("latitude").value);
+  const longitude = Number(byId<HTMLInputElement>("longitude").value);
+
   output.hidden = false;
-  output.textContent = answer.message;
+  button.disabled = true;
+  button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
+
+  try {
+    const response = await fetch(KUNDLI_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        datetime: `${date}T${time}:00+05:30`,
+        coordinates: `${latitude},${longitude}`
+      })
+    });
+
+    const result = await response.json() as {
+      status?: string;
+      code?: string;
+      message?: string;
+      data?: unknown;
+    };
+
+    if (!response.ok || result.status !== "SUCCESS") {
+      throw new Error(result.message || result.code || `Request failed with HTTP ${response.status}`);
+    }
+
+    output.textContent = locale === "hi-IN"
+      ? `जन्म स्थान: ${place}\n\nवास्तविक वैदिक कुंडली डेटा प्राप्त हो गया है।\n\n${JSON.stringify(result.data, null, 2)}`
+      : `Birth place: ${place}\n\nLive Vedic Kundli data received.\n\n${JSON.stringify(result.data, null, 2)}`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown request error";
+    output.textContent = locale === "hi-IN"
+      ? `कुंडली डेटा प्राप्त नहीं हो सका।\n\n${message}`
+      : `Kundli data could not be retrieved.\n\n${message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त करें" : "Get Kundli data";
+  }
 });
 
 render();
