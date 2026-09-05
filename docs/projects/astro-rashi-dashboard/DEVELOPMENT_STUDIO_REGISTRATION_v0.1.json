@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "KALP-PROJ-ASTRO-RASHI-001",
+    "userIntent": "Build a multilingual weekly horoscope dashboard for all 12 राशियाँ with a basic astrologer assistant using date of birth, place of birth, and time of birth.",
+    "status": "REQUIREMENTS_APPROVED",
+    "platform": "WEB_FIRST_ANDROID_READY",
+    "deploymentMode": "HYBRID",
+    "executionMetadata": {
+      "parentSystem": "KALP Development Studio",
+      "initialLocales": ["hi-IN", "en-IN"],
+      "registrationStatus": "REGISTERED",
+      "implementationStatus": "NOT_STARTED"
+    },
+    "traceReferences": [
+      "docs/projects/astro-rashi-dashboard/REQUIREMENTS_v0.1.md",
+      "docs/projects/astro-rashi-dashboard/ARCHITECTURE_UX_SPEC_v0.1.md"
+    ],
+    "authority": "APPROVED_PROJECT_ARTIFACT",
+    "sourceReferences": [
+      "docs/projects/astro-rashi-dashboard/REQUIREMENTS_v0.1.md",
+      "docs/projects/astro-rashi-dashboard/ARCHITECTURE_UX_SPEC_v0.1.md"
+    ]
+  },
+  "requirements": {
+    "status": "APPROVED",
+    "approvalId": "KALP-APPROVAL-ASTRO-RASHI-001",
+    "approvalType": "REQUIREMENTS_APPROVAL",
+    "decision": "APPROVED"
+  },
+  "architectureUx": {
+    "status": "APPROVED",
+    "artifactId": "ASTRO-RASHI-ARCH-UX-001",
+    "approvalId": "KALP-APPROVAL-ASTRO-RASHI-002",
+    "approvalType": "ARCHITECTURE_UX_APPROVAL",
+    "decision": "APPROVED"
+  },
+  "nextState": "IMPLEMENTATION_PLANNED",
+  "blockingDecisions": [
+    "Astrology tradition and calculation convention",
+    "Ephemeris data source and licensing",
+    "Ayanamsa and house system",
+    "Weekly content authority and editorial workflow",
+    "Birth-data persistence and retention policy"
+  ],
+  "createdAt": "2026-09-05T00:00:00+05:30",
+  "authorityNote": "This registration is a project-level Development Studio record and does not promote the artifact to canonical KALP architecture."
+}
