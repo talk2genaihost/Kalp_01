@@ -1,0 +1,41 @@
+name: Deploy Astro Rashi to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository without external action
+        run: |
+          set -eu
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
+          git checkout "${GITHUB_SHA}"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Astro Rashi browser slice
+        run: npm run build:astro-rashi
+
+      - name: Publish static site to gh-pages
+        run: |
+          set -eu
+          rm -rf /tmp/astro-rashi-site
+          mkdir -p /tmp/astro-rashi-site
+          cp -R dist/astro-rashi/. /tmp/astro-rashi-site/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan gh-pages
+          git rm -rf . || true
+          cp -R /tmp/astro-rashi-site/. .
+          touch .nojekyll
+          git add .
+          git commit -m "Deploy Astro Rashi browser slice"
+          git push --force origin gh-pages
