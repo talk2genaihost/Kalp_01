@@ -21,15 +21,18 @@ jobs:
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
           git checkout "${GITHUB_SHA}"
 
-      - name: Preserve currently published pages
+      - name: Preserve currently published Weather application
         run: |
           set -eu
-          rm -rf /tmp/current-pages
+          rm -rf /tmp/current-weather
+          mkdir -p /tmp/current-weather
           if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
             git clone --depth 1 --branch gh-pages "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/current-pages
-            rm -rf /tmp/current-pages/.git
-          else
-            mkdir -p /tmp/current-pages
+            if [ -d /tmp/current-pages/weather-dashboard ]; then
+              cp -R /tmp/current-pages/weather-dashboard/. /tmp/current-weather/
+            elif [ -f /tmp/current-pages/index.html ]; then
+              cp -R /tmp/current-pages/. /tmp/current-weather/
+            fi
           fi
 
       - name: Install dependencies
@@ -42,14 +45,13 @@ jobs:
         run: |
           set -eu
           rm -rf /tmp/published-site
-          mkdir -p /tmp/published-site
+          mkdir -p /tmp/published-site/weather-dashboard
+          mkdir -p /tmp/published-site/astro-rashi
 
-          if [ -f /tmp/current-pages/index.html ]; then
-            mkdir -p /tmp/published-site/weather-dashboard
-            cp -R /tmp/current-pages/. /tmp/published-site/weather-dashboard/
+          if [ -n "$(find /tmp/current-weather -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+            cp -R /tmp/current-weather/. /tmp/published-site/weather-dashboard/
           fi
 
-          mkdir -p /tmp/published-site/astro-rashi
           cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
 
           cat > /tmp/published-site/index.html <<'EOF'
@@ -70,6 +72,13 @@ jobs:
           </html>
           EOF
 
+          cat > /tmp/published-site/astro-rashi.html <<'EOF'
+          <!doctype html>
+          <meta http-equiv="refresh" content="0; url=./astro-rashi/" />
+          <link rel="canonical" href="./astro-rashi/" />
+          <title>Astro Rashi Dashboard</title>
+          EOF
+
           touch /tmp/published-site/.nojekyll
 
       - name: Publish static site to gh-pages
@@ -84,5 +93,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Publish separate Weather and Astro Rashi pages"
+          git commit -m "Fix separate Weather and Astro Rashi Pages layout"
           git push --force origin gh-pages
