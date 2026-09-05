@@ -60,12 +60,27 @@ function render(): void {
   byId("weeklyText").textContent = weekly.summary;
 }
 
-function firstValue(source: unknown, keys: string[]): string | null {
-  if (!source || typeof source !== "object") return null;
-  const record = source as Record<string, unknown>;
-  for (const key of keys) {
+function objectRecord(source: unknown): Record<string, unknown> | null {
+  return source && typeof source === "object" ? source as Record<string, unknown> : null;
+}
+
+function displayValue(source: unknown): string | null {
+  if (typeof source === "string" || typeof source === "number") return String(source);
+  const record = objectRecord(source);
+  if (!record) return null;
+  for (const key of ["name", "vedic_name", "label", "display_name", "value", "sign", "rashi", "planet", "graha"]) {
     const value = record[key];
     if (typeof value === "string" || typeof value === "number") return String(value);
+  }
+  return null;
+}
+
+function firstValue(source: unknown, keys: string[]): string | null {
+  const record = objectRecord(source);
+  if (!record) return displayValue(source);
+  for (const key of keys) {
+    const value = displayValue(record[key]);
+    if (value) return value;
   }
   for (const value of Object.values(record)) {
     const nested = firstValue(value, keys);
@@ -75,8 +90,8 @@ function firstValue(source: unknown, keys: string[]): string | null {
 }
 
 function firstArray(source: unknown, keys: string[]): unknown[] | null {
-  if (!source || typeof source !== "object") return null;
-  const record = source as Record<string, unknown>;
+  const record = objectRecord(source);
+  if (!record) return null;
   for (const key of keys) if (Array.isArray(record[key])) return record[key] as unknown[];
   for (const value of Object.values(record)) {
     const nested = firstArray(value, keys);
@@ -88,10 +103,7 @@ function firstArray(source: unknown, keys: string[]): unknown[] | null {
 function formatList(source: unknown, keys: string[]): string | null {
   const values = firstArray(source, keys);
   if (!values?.length) return null;
-  const labels = values.map((value) => {
-    if (typeof value === "string" || typeof value === "number") return String(value);
-    return firstValue(value, ["name", "label", "planet", "graha", "sign", "rashi"]) ?? null;
-  }).filter((value): value is string => Boolean(value));
+  const labels = values.map((value) => displayValue(value)).filter((value): value is string => Boolean(value));
   return labels.length ? labels.join(", ") : null;
 }
 
