@@ -60,19 +60,65 @@ function render(): void {
   byId("weeklyText").textContent = weekly.summary;
 }
 
+function firstValue(source: unknown, keys: string[]): string | null {
+  if (!source || typeof source !== "object") return null;
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" || typeof value === "number") return String(value);
+  }
+  for (const value of Object.values(record)) {
+    const nested = firstValue(value, keys);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function addResultItem(container: HTMLElement, label: string, value: string | null): void {
+  if (!value) return;
+  const item = document.createElement("div");
+  item.className = "kundli-item";
+  const itemLabel = document.createElement("span");
+  itemLabel.className = "kundli-item-label";
+  itemLabel.textContent = label;
+  const itemValue = document.createElement("strong");
+  itemValue.textContent = value;
+  item.append(itemLabel, itemValue);
+  container.appendChild(item);
+}
+
 function renderKundliResult(data: unknown, place: string): void {
   const output = byId<HTMLDivElement>("answer");
   output.replaceChildren();
+  output.className = "notice kundli-result";
+
   const heading = document.createElement("h3");
   heading.textContent = locale === "hi-IN" ? "वास्तविक वैदिक कुंडली" : "Live Vedic Kundli";
   output.appendChild(heading);
-  const location = document.createElement("p");
-  location.textContent = `${locale === "hi-IN" ? "जन्म स्थान" : "Birth place"}: ${place}`;
-  output.appendChild(location);
+
+  const note = document.createElement("p");
+  note.textContent = locale === "hi-IN" ? "यह विवरण जन्म-समय और स्थान के आधार पर प्रदाता से प्राप्त हुआ है।" : "These details were received from the provider using the birth time and location.";
+  output.appendChild(note);
+
+  const grid = document.createElement("div");
+  grid.className = "kundli-grid";
+  addResultItem(grid, locale === "hi-IN" ? "जन्म स्थान" : "Birth place", place);
+  addResultItem(grid, locale === "hi-IN" ? "लग्न" : "Ascendant", firstValue(data, ["ascendant", "lagna", "ascendant_name"]));
+  addResultItem(grid, locale === "hi-IN" ? "चंद्र राशि" : "Moon sign", firstValue(data, ["moon_sign", "moonSign", "rashi", "chandra_rashi"]));
+  addResultItem(grid, locale === "hi-IN" ? "नक्षत्र" : "Nakshatra", firstValue(data, ["nakshatra", "birth_star", "birthStar"]));
+  addResultItem(grid, locale === "hi-IN" ? "तिथि" : "Tithi", firstValue(data, ["tithi"]));
+  addResultItem(grid, locale === "hi-IN" ? "योग" : "Yoga", firstValue(data, ["yoga"]));
+  output.appendChild(grid);
+
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = locale === "hi-IN" ? "पूरा प्रदाता डेटा देखें" : "View complete provider data";
+  details.appendChild(summary);
   const pre = document.createElement("pre");
   pre.className = "kundli-json";
   pre.textContent = JSON.stringify(data, null, 2);
-  output.appendChild(pre);
+  details.appendChild(pre);
+  output.appendChild(details);
 }
 
 byId<HTMLSelectElement>("language").addEventListener("change", (event) => {
@@ -90,6 +136,7 @@ byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
   const latitude = Number(byId<HTMLInputElement>("latitude").value);
   const longitude = Number(byId<HTMLInputElement>("longitude").value);
   output.hidden = false;
+  output.className = "notice";
   output.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
   button.disabled = true;
   button.textContent = locale === "hi-IN" ? "कुंडली डेटा प्राप्त हो रहा है…" : "Fetching Kundli data…";
@@ -105,6 +152,7 @@ byId<HTMLFormElement>("birthForm").addEventListener("submit", async (event) => {
     renderKundliResult(result.data, place);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown request error";
+    output.className = "notice";
     output.textContent = locale === "hi-IN" ? `कुंडली डेटा प्राप्त नहीं हो सका।\n\n${message}` : `Kundli data could not be retrieved.\n\n${message}`;
   } finally {
     button.disabled = false;
