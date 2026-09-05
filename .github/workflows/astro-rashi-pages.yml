@@ -10,6 +10,7 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ github.token }}
+  WEATHER_SOURCE_BRANCH: feat/weather-six-city-demo
 
 jobs:
   deploy:
@@ -21,17 +22,12 @@ jobs:
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
           git checkout "${GITHUB_SHA}"
 
-      - name: Preserve currently published Weather application
+      - name: Restore Weather application from its source branch
         run: |
           set -eu
-          rm -rf /tmp/current-weather
-          mkdir -p /tmp/current-weather
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git clone --depth 1 --branch gh-pages "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/current-pages
-            if [ -d /tmp/current-pages/weather-dashboard ] && [ -f /tmp/current-pages/weather-dashboard/index.html ]; then
-              cp -R /tmp/current-pages/weather-dashboard/. /tmp/current-weather/
-            fi
-          fi
+          rm -rf /tmp/weather-source
+          git clone --depth 1 --branch "${WEATHER_SOURCE_BRANCH}" "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/weather-source
+          test -f /tmp/weather-source/weather-dashboard/index.html
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -46,10 +42,7 @@ jobs:
           mkdir -p /tmp/published-site/weather-dashboard
           mkdir -p /tmp/published-site/astro-rashi
 
-          if [ -n "$(find /tmp/current-weather -mindepth 1 -maxdepth 1 -print -quit)" ]; then
-            cp -R /tmp/current-weather/. /tmp/published-site/weather-dashboard/
-          fi
-
+          cp -R /tmp/weather-source/weather-dashboard/. /tmp/published-site/weather-dashboard/
           cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
 
           cat > /tmp/published-site/index.html <<'EOF'
