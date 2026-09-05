@@ -10,7 +10,8 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ github.token }}
-\ njobs:
+
+jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
