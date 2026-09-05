@@ -10,7 +10,7 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ github.token }}
-  WEATHER_SOURCE_BRANCH: feat/weather-six-city-demo
+  WEATHER_SOURCE_BRANCH: main
 
 jobs:
   deploy:
@@ -28,6 +28,8 @@ jobs:
           rm -rf /tmp/weather-source
           git clone --depth 1 --branch "${WEATHER_SOURCE_BRANCH}" "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/weather-source
           test -f /tmp/weather-source/weather-dashboard/index.html
+          test -f /tmp/weather-source/weather-dashboard/app.js
+          test -f /tmp/weather-source/weather-dashboard/styles.css
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
