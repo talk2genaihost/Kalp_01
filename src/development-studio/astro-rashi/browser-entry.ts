@@ -83,6 +83,11 @@ function providerData(payload: unknown): AnyProviderData {
   return root ?? {};
 }
 
+function requestedData(payload: unknown): ProviderObject {
+  const root = payload as ProviderObject | null;
+  return root?.requested && typeof root.requested === "object" ? root.requested as ProviderObject : {};
+}
+
 const hindiNames: Record<string, string> = {
   Aries: "मेष",
   Taurus: "वृषभ",
@@ -147,12 +152,14 @@ function localizeYoga(value: string): string {
 
 function mapKundli(payload: unknown): KundliResult {
   const data = providerData(payload);
+  const requested = requestedData(payload);
   const details = data.nakshatra_details ?? {};
   const nak = (details.nakshatra as ProviderObject | undefined) ?? {};
   const moon = (details.chandra_rasi as ProviderObject | undefined) ?? {};
   const sun = (details.soorya_rasi as ProviderObject | undefined) ?? {};
   const mangalDosha = data.mangal_dosha;
 
+  const requestedBirthPlace = text(requested.birthPlace);
   const yogaDetails: string[] = Array.isArray(data.yoga_details)
     ? data.yoga_details
         .map((item: unknown) => {
@@ -170,18 +177,41 @@ function mapKundli(payload: unknown): KundliResult {
     : undefined;
 
   return {
-    birthPlace: hindi(readPath(data, ["birth_place", "birthPlace", "place", "location"])),
-    lagna: hindi(readPath(data, ["lagna", "ascendant", "ascendant_details.ascendant", "ascendant_details.sign", "rising_sign"])),
-    moonSign: hindi(text(moon.name)),
-    nakshatra: hindi(text(nak.name)),
+    birthPlace: requestedBirthPlace ?? hindi(readPath(data, ["birth_place", "birthPlace", "place", "location"])),
+    lagna: hindi(readPath(data, [
+      "lagna",
+      "lagna.name",
+      "lagna.sign",
+      "ascendant",
+      "ascendant.name",
+      "ascendant.sign",
+      "ascendant_details.ascendant",
+      "ascendant_details.ascendant.name",
+      "ascendant_details.sign",
+      "ascendant_details.sign.name",
+      "rising_sign",
+      "rising_sign.name",
+    ])),
+    moonSign: hindi(text(moon.name) ?? text(moon.sign)),
+    nakshatra: hindi(text(nak.name) ?? text(nak.sign)),
     nakshatraPada: text(nak.pada) ?? "प्रदाता ने उपलब्ध नहीं कराया",
     nakshatraLord: hindi(text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).name : null) ?? text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).vedic_name : null)),
-    tithi: hindi(readPath(data, ["tithi", "tithi_details.tithi", "panchang.tithi", "panchang_details.tithi"])),
-    yoga: yogaDetails.length ? yogaDetails.join("\n") : localizeYoga(hindi(readPath(data, ["yoga", "panchang.yoga", "panchang_details.yoga"]))),
-    karana: hindi(readPath(data, ["karana", "karana_details.karana", "panchang.karana", "panchang_details.karana"])),
-    sunSign: hindi(text(sun.name)),
+    tithi: hindi(readPath(data, [
+      "tithi",
+      "tithi.name",
+      "tithi.label",
+      "tithi_details.tithi",
+      "tithi_details.tithi.name",
+      "panchang.tithi",
+      "panchang.tithi.name",
+      "panchang_details.tithi",
+      "panchang_details.tithi.name",
+    ])),
+    yoga: yogaDetails.length ? yogaDetails.join("\n") : localizeYoga(hindi(readPath(data, ["yoga", "yoga.name", "panchang.yoga", "panchang.yoga.name", "panchang_details.yoga", "panchang_details.yoga.name"]))),
+    karana: hindi(readPath(data, ["karana", "karana.name", "karana_details.karana", "karana_details.karana.name", "panchang.karana", "panchang.karana.name", "panchang_details.karana", "panchang_details.karana.name"])),
+    sunSign: hindi(text(sun.name) ?? text(sun.sign)),
     manglik: hasMangalik === false ? "मंगल दोष नहीं" : hasMangalik === true ? "मंगल दोष है" : "प्रदाता ने उपलब्ध नहीं कराया",
-    dasha: hindi(readPath(data, ["dasha", "dasha_period", "dasha_periods"])),
+    dasha: hindi(readPath(data, ["dasha", "dasha.name", "dasha_period", "dasha_period.name", "dasha_periods"])),
   };
 }
 
