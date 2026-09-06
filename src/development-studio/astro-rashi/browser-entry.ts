@@ -4,80 +4,24 @@ import { createLiveHoroscopeProvider, fetchLiveHoroscopes, SIGN_MAP } from "./li
 import { rashis } from "./localization.js";
 import type { Locale, Rashi } from "./domain.js";
 
+interface KundliResult { birthPlace: string; lagna: string; moonSign: string; nakshatra: string; nakshatraPada: string; nakshatraLord: string; tithi: string; yoga: string; karana: string; sunSign: string; manglik: string; dasha: string; }
 const liveProvider = createLiveHoroscopeProvider();
 const runtime = createAstroRashiRuntime(liveProvider, unavailableCalculationProvider);
-const locale: Locale = "en-IN";
-let selectedRashi: Rashi = rashis[0];
-let liveStatus = "Loading live daily horoscope…";
+const KUNDLI_ENDPOINT = "https://cfwrgalgscieddkcrtde.supabase.co/functions/v1/astro-kundli";
+const SUPABASE_URL = "https://cfwrgalgscieddkcrtde.supabase.co";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const locale: Locale = "hi-IN";
+let selectedRashi: Rashi = rashis[0]; let accessToken: string | null = null; let liveStatus = "Loading live daily horoscope…";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
-function installLayoutFixes(): void {
-  if (document.getElementById("astro-rashi-layout-fixes")) return;
-  const style = document.createElement("style");
-  style.id = "astro-rashi-layout-fixes";
-  style.textContent = `
-    #rashiGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; }
-    #weeklyText { min-height:4.5rem; white-space:pre-wrap; line-height:1.7; }
-    #selectedRashiHint { display:none !important; }
-    .rashi { min-width:0; }
-    @media (max-width:700px) {
-      main, .page, .app, .container { max-width:100%; overflow-x:hidden; }
-      .cards, .content-grid, .dashboard-grid { grid-template-columns:1fr !important; }
-      h1 { font-size:clamp(2rem,8vw,3.5rem) !important; }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-function renderRashis(): void {
-  const grid = $("rashiGrid");
-  grid.innerHTML = "";
-  rashis.forEach((rashi, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "rashi";
-    button.setAttribute("aria-pressed", String(rashi.id === selectedRashi.id));
-    button.innerHTML = `<span class="rashi-symbol">${rashi.symbol}</span><span class="rashi-name">${rashi.names[locale]}</span><span class="rashi-index">${index + 1} / 12</span>`;
-    button.addEventListener("click", () => {
-      selectedRashi = rashi;
-      renderRashis();
-      renderWeekly();
-    });
-    grid.appendChild(button);
-  });
-}
-
-function renderWeekly(): void {
-  const content = runtime.weekly(selectedRashi.id, locale);
-  const summary = content.summary?.trim() || "इस राशि के लिए साप्ताहिक संदेश अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद पुनः प्रयास करें।";
-  $("selectedName").textContent = selectedRashi.names[locale];
-  $("weeklyText").textContent = summary;
-  $("selectedRashiLabel").textContent = `${selectedRashi.names[locale]} — Selected sign`;
-  $("selectedRashiHint").textContent = liveStatus;
-}
-
-async function loadLive(): Promise<void> {
-  try {
-    const result = await fetchLiveHoroscopes(locale);
-    for (const rashi of rashis) {
-      const value = result.values.get(SIGN_MAP[rashi.id]);
-      if (value?.trim()) liveProvider.setSummary(rashi.id, value.trim());
-    }
-    liveStatus = "Live daily horoscope · Powered by Sigastra";
-    renderWeekly();
-  } catch (error) {
-    liveStatus = "Live horoscope unavailable right now. Please retry later.";
-    renderWeekly();
-    console.error(error);
-  }
-}
-
-function bind(): void {
-  installLayoutFixes();
-  document.getElementById("language")?.remove();
-  renderRashis();
-  renderWeekly();
-  void loadLive();
-}
-
+function text(value: unknown): string | null { if (value === null || value === undefined) return null; if (typeof value === "string" || typeof value === "number") { const v = String(value).trim(); return v && v.toLowerCase() !== "ok" ? v : null; } if (typeof value === "object") { const r = value as Record<string, unknown>; for (const k of ["name", "vedic_name", "label", "value", "sign", "rashi", "title"]) { const v = text(r[k]); if (v) return v; } } return null; }
+function readPath(root: unknown, paths: string[]): string | null { for (const path of paths) { let c: unknown = root; for (const part of path.split(".")) { if (!c || typeof c !== "object") { c = null; break; } c = (c as Record<string, unknown>)[part]; } const v = text(c); if (v) return v; } return null; }
+function providerData(payload: unknown): any { let c: any = payload; for (let i = 0; i < 3; i += 1) { if (!c || typeof c !== "object" || !c.data || typeof c.data !== "object") return c; c = c.data; } return c; }
+function mapKundli(payload: unknown): KundliResult { const data = providerData(payload); const nak = data?.nakshatra_details?.nakshatra; const yogaGroups = Array.isArray(data?.yoga_details) ? data.yoga_details : []; const yogas = yogaGroups.flatMap((g: any) => Array.isArray(g?.yoga_list) ? g.yoga_list.filter((y: any) => y?.has_yoga).map((y: any) => y.name) : []); const dasha = Array.isArray(data?.dasha_periods) ? data.dasha_periods.slice(0, 3).map((d: any) => text(d?.name) ?? text(d?.planet) ?? text(d)).filter(Boolean).join(", ") : null; return { birthPlace: readPath(data, ["birth_place", "birthPlace", "place", "location"]) ?? "—", lagna: readPath(data, ["lagna", "ascendant", "ascendant_details.ascendant", "ascendant_details.sign", "rising_sign"]) ?? "—", moonSign: readPath(data, ["moon_sign", "moonSign", "nakshatra_details.chandra_rasi", "chandra_rashi", "chandra_rashi_details.rashi", "moon_details.sign", "moon.sign"]) ?? "—", nakshatra: readPath(data, ["nakshatra_details.nakshatra", "nakshatra", "birth_star", "janma_nakshatra"]) ?? "—", nakshatraPada: text(nak?.pada) ?? "—", nakshatraLord: text(nak?.lord) ?? "—", tithi: readPath(data, ["tithi", "tithi_details.tithi", "panchang.tithi", "panchang_details.tithi"]) ?? "—", yoga: yogas.join(", ") || readPath(data, ["yoga", "panchang.yoga", "panchang_details.yoga"]) || "—", karana: readPath(data, ["karana", "karana_details.karana", "panchang.karana", "panchang_details.karana"]) ?? "—", sunSign: readPath(data, ["sun_sign", "sunSign", "nakshatra_details.soorya_rasi", "surya_rashi", "sun_details.sign", "sun.sign"]) ?? "—", manglik: data?.mangal_dosha?.has_dosha === false ? "Not Manglik" : data?.mangal_dosha?.has_dosha === true ? "Manglik" : "—", dasha: dasha ?? "—" }; }
+function escapeHtml(value: string): string { return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c); }
+function renderKundli(payload: unknown): void { const r = mapKundli(payload); const answer = $("answer"); answer.className = "notice kundli-result"; answer.hidden = false; const fields: [string, string][] = [["जन्म स्थान", r.birthPlace], ["लग्न", r.lagna], ["चंद्र राशि", r.moonSign], ["नक्षत्र", r.nakshatra], ["नक्षत्र पाद", r.nakshatraPada], ["नक्षत्र स्वामी", r.nakshatraLord], ["तिथि", r.tithi], ["योग", r.yoga], ["करण", r.karana], ["सूर्य राशि", r.sunSign], ["मंगल दोष", r.manglik], ["दशा", r.dasha]]; answer.innerHTML = `<h3>वास्तविक वैदिक कुंडली</h3><p>यह विवरण जन्म-समय और स्थान के आधार पर प्रदाता से प्राप्त हुआ है।</p><div class="kundli-grid">${fields.map(([label, value]) => `<div class="kundli-item"><span class="kundli-item-label">${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><details><summary>पूरा प्रदाता डेटा देखें</summary><pre class="kundli-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>`; }
+async function getAccessToken(): Promise<string> { if (accessToken) return accessToken; if (!SUPABASE_ANON_KEY) throw new Error("Supabase browser key is not configured in this build."); const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: "POST", headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" }, body: JSON.stringify({}) }); if (!response.ok) throw new Error(`Authentication failed (${response.status}).`); const body = await response.json() as { access_token?: string }; if (!body.access_token) throw new Error("Authentication did not return an access token."); accessToken = body.access_token; return accessToken; }
+function renderRashis(): void { const grid = $("rashiGrid"); grid.innerHTML = ""; rashis.forEach((rashi, index) => { const button = document.createElement("button"); button.type = "button"; button.className = "rashi"; button.setAttribute("aria-pressed", String(rashi.id === selectedRashi.id)); button.innerHTML = `<span class="rashi-symbol">${rashi.symbol}</span><span class="rashi-name">${rashi.names[locale]}</span><span class="rashi-index">${index + 1} / 12</span>`; button.addEventListener("click", () => { selectedRashi = rashi; renderRashis(); renderDaily(); }); grid.appendChild(button); }); }
+function renderDaily(): void { const content = runtime.weekly(selectedRashi.id, locale); const summary = content.summary?.trim() || "इस राशि के लिए दैनिक संदेश अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद पुनः प्रयास करें।"; $("selectedName").textContent = selectedRashi.names[locale]; $("weeklyText").textContent = summary; $("selectedRashiLabel").textContent = `${selectedRashi.names[locale]} — चयनित राशि`; $("selectedRashiHint").textContent = liveStatus; }
+async function loadLive(): Promise<void> { try { const result = await fetchLiveHoroscopes(locale); for (const rashi of rashis) { const value = result.values.get(SIGN_MAP[rashi.id]); if (value?.trim()) liveProvider.setSummary(rashi.id, value.trim()); } liveStatus = "Live daily horoscope · Powered by Sigastra"; renderDaily(); } catch (error) { liveStatus = "Live horoscope unavailable right now. Please retry later."; renderDaily(); console.error(error); } }
+function bind(): void { document.getElementById("language")?.remove(); $("birthForm").addEventListener("submit", async event => { event.preventDefault(); const button = $("askButton") as HTMLButtonElement; const answer = $("answer"); const birthDate = $("birthDate") as HTMLInputElement; const birthTime = $("birthTime") as HTMLInputElement; const latitudeInput = $("latitude") as HTMLInputElement; const longitudeInput = $("longitude") as HTMLInputElement; const birthPlaceInput = $("birthPlace") as HTMLInputElement; button.disabled = true; answer.hidden = false; answer.className = "notice"; answer.textContent = "कुंडली डेटा प्राप्त किया जा रहा है…"; try { const token = await getAccessToken(); const response = await fetch(KUNDLI_ENDPOINT, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ datetime: `${birthDate.value}T${birthTime.value}:00+05:30`, coordinates: `${latitudeInput.value},${longitudeInput.value}`, birthPlace: birthPlaceInput.value.trim() }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload?.error ?? `Provider request failed (${response.status}).`); renderKundli(payload); } catch (error) { answer.className = "notice"; answer.textContent = error instanceof Error ? error.message : "कुंडली डेटा प्राप्त नहीं हो सका।"; } finally { button.disabled = false; } }); renderRashis(); renderDaily(); void loadLive(); }
 bind();
