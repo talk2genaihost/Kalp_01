@@ -120,7 +120,7 @@ const hindiNames: Record<string, string> = {
   Ravi: "सूर्य",
   Budha: "बुध",
   Shani: "शनि",
-  Uttara Phalguni: "उत्तर फाल्गुनी",
+  "Uttara Phalguni": "उत्तर फाल्गुनी",
   Shatabhisha: "शतभिषा",
 };
 
