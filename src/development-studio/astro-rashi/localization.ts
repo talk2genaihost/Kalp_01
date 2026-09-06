@@ -3,7 +3,7 @@ import type { Locale, RashiId } from "./domain.js";
 export const translations: Record<Locale, Record<string, string>> = {
   "en-IN": {
     appTitle: "Astro Rashi Dashboard",
-    weeklyTitle: "Weekly horoscope",
+    weeklyTitle: "Daily horoscope",
     birthTitle: "Birth details",
     assistantTitle: "Astrologer assistant",
     demoNotice: "Demo content — not a calculated prediction.",
@@ -16,7 +16,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
   "hi-IN": {
     appTitle: "एस्ट्रो राशि डैशबोर्ड",
-    weeklyTitle: "साप्ताहिक राशिफल",
+    weeklyTitle: "दैनिक राशिफल",
     birthTitle: "जन्म विवरण",
     assistantTitle: "ज्योतिष सहायक",
     demoNotice: "डेमो सामग्री — यह गणना किया हुआ भविष्यफल नहीं है।",
