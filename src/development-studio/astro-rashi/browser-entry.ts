@@ -20,6 +20,13 @@ interface KundliResult {
 }
 
 type ProviderYoga = { name?: unknown; description?: unknown };
+type ProviderObject = Record<string, unknown>;
+
+type AnyProviderData = ProviderObject & {
+  nakshatra_details?: ProviderObject;
+  yoga_details?: unknown;
+  mangal_dosha?: ProviderObject;
+};
 
 const liveProvider = createLiveHoroscopeProvider();
 const runtime = createAstroRashiRuntime(liveProvider, unavailableCalculationProvider);
@@ -40,7 +47,7 @@ function text(value: unknown): string | null {
     return v && v.toLowerCase() !== "ok" ? v : null;
   }
   if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
+    const record = value as ProviderObject;
     for (const key of ["name", "vedic_name", "label", "value", "sign", "rashi", "title"]) {
       const v = text(record[key]);
       if (v) return v;
@@ -57,7 +64,7 @@ function readPath(root: unknown, paths: string[]): string | null {
         current = null;
         break;
       }
-      current = (current as Record<string, unknown>)[part];
+      current = (current as ProviderObject)[part];
     }
     const value = text(current);
     if (value) return value;
@@ -65,9 +72,15 @@ function readPath(root: unknown, paths: string[]): string | null {
   return null;
 }
 
-function providerData(payload: unknown): any {
-  const root = payload as any;
-  return root?.data?.data ?? root?.data ?? root ?? {};
+function providerData(payload: unknown): AnyProviderData {
+  const root = payload as AnyProviderData | null;
+  const nested = root?.data;
+  if (nested && typeof nested === "object") {
+    const nestedData = (nested as ProviderObject).data;
+    if (nestedData && typeof nestedData === "object") return nestedData as AnyProviderData;
+    return nested as AnyProviderData;
+  }
+  return root ?? {};
 }
 
 const hindiNames: Record<string, string> = {
@@ -118,12 +131,13 @@ function hindi(value: string | null): string {
 
 function mapKundli(payload: unknown): KundliResult {
   const data = providerData(payload);
-  const details = data?.nakshatra_details ?? {};
-  const nak = details.nakshatra ?? {};
-  const moon = details.chandra_rasi ?? {};
-  const sun = details.soorya_rasi ?? {};
+  const details = data.nakshatra_details ?? {};
+  const nak = (details.nakshatra as ProviderObject | undefined) ?? {};
+  const moon = (details.chandra_rasi as ProviderObject | undefined) ?? {};
+  const sun = (details.soorya_rasi as ProviderObject | undefined) ?? {};
+  const mangalDosha = data.mangal_dosha;
 
-  const yogaDetails: string[] = Array.isArray(data?.yoga_details)
+  const yogaDetails: string[] = Array.isArray(data.yoga_details)
     ? data.yoga_details
         .map((item: unknown) => {
           const yoga = (item && typeof item === "object" ? item : {}) as ProviderYoga;
@@ -135,23 +149,22 @@ function mapKundli(payload: unknown): KundliResult {
         .filter((item: string | null): item is string => Boolean(item))
     : [];
 
+  const hasMangalik = mangalDosha && typeof mangalDosha === "object"
+    ? mangalDosha.has_dosha
+    : undefined;
+
   return {
     birthPlace: hindi(readPath(data, ["birth_place", "birthPlace", "place", "location"])),
     lagna: hindi(readPath(data, ["lagna", "ascendant", "ascendant_details.ascendant", "ascendant_details.sign", "rising_sign"])),
     moonSign: hindi(text(moon.name)),
     nakshatra: hindi(text(nak.name)),
     nakshatraPada: text(nak.pada) ?? "प्रदाता ने उपलब्ध नहीं कराया",
-    nakshatraLord: hindi(text(nak.lord?.name) ?? text(nak.lord?.vedic_name)),
+    nakshatraLord: hindi(text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).name : null) ?? text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).vedic_name : null)),
     tithi: hindi(readPath(data, ["tithi", "tithi_details.tithi", "panchang.tithi", "panchang_details.tithi"])),
     yoga: yogaDetails.length ? yogaDetails.join("\n") : hindi(readPath(data, ["yoga", "panchang.yoga", "panchang_details.yoga"])),
     karana: hindi(readPath(data, ["karana", "karana_details.karana", "panchang.karana", "panchang_details.karana"])),
     sunSign: hindi(text(sun.name)),
-    manglik:
-      data?.mangal_dosha?.has_dosha === false
-        ? "मंगल दोष नहीं"
-        : data?.mangal_dosha?.has_dosha === true
-          ? "मंगल दोष है"
-          : "प्रदाता ने उपलब्ध नहीं कराया",
+    manglik: hasMangalik === false ? "मंगल दोष नहीं" : hasMangalik === true ? "मंगल दोष है" : "प्रदाता ने उपलब्ध नहीं कराया",
     dasha: hindi(readPath(data, ["dasha", "dasha_period", "dasha_periods"])),
   };
 }
