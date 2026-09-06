@@ -2,7 +2,7 @@ import type { HoroscopeContentProvider, Locale, RashiId, WeeklyHoroscope } from 
 
 const DAILY_ENDPOINT = "https://sigastra.com/api/v1/daily";
 
-aexport const SIGN_MAP: Record<RashiId, string> = {
+export const SIGN_MAP: Record<RashiId, string> = {
   mesha: "aries",
   vrishabha: "taurus",
   mithuna: "gemini",
