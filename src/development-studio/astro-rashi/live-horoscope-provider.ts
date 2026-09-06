@@ -2,7 +2,7 @@ import type { HoroscopeContentProvider, Locale, RashiId, WeeklyHoroscope } from 
 
 const DAILY_ENDPOINT = "https://sigastra.com/api/v1/daily";
 
-export const SIGN_MAP: Record<RashiId, string> = {
+aexport const SIGN_MAP: Record<RashiId, string> = {
   mesha: "aries",
   vrishabha: "taurus",
   mithuna: "gemini",
@@ -17,22 +17,41 @@ export const SIGN_MAP: Record<RashiId, string> = {
   meena: "pisces"
 };
 
-type SigastraItem = Record<string, unknown>;
+type ProviderObject = Record<string, unknown>;
 
-function extractText(item: SigastraItem): string {
-  for (const key of ["teaser", "text", "summary", "description", "prediction"]) {
+function extractText(item: ProviderObject): string | null {
+  for (const key of ["text", "teaser", "summary", "description", "prediction", "dek", "articleBody"]) {
     const value = item[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
-  return "Live horoscope text is unavailable for this sign.";
+  return null;
 }
 
-function normalize(payload: unknown): SigastraItem[] {
+function extractSign(item: ProviderObject): string | null {
+  for (const key of ["sign", "slug", "rashi", "zodiac", "name"]) {
+    const value = item[key];
+    if (typeof value === "string" && value.trim()) return value.trim().toLowerCase();
+  }
+  return null;
+}
+
+function normalize(payload: unknown): ProviderObject[] {
   if (!payload || typeof payload !== "object") return [];
-  const items = (payload as Record<string, unknown>).items;
-  return Array.isArray(items)
-    ? items.filter((item): item is SigastraItem => Boolean(item && typeof item === "object"))
-    : [];
+  const root = payload as ProviderObject;
+  const candidates = [root.items, root.data, root.results];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((item): item is ProviderObject => Boolean(item && typeof item === "object"));
+    }
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as ProviderObject;
+      if (Array.isArray(nested.items)) {
+        return nested.items.filter((item): item is ProviderObject => Boolean(item && typeof item === "object"));
+      }
+      if (extractText(nested)) return [nested];
+    }
+  }
+  return extractText(root) ? [root] : [];
 }
 
 export function createLiveHoroscopeProvider(): HoroscopeContentProvider & {
@@ -60,16 +79,24 @@ export async function fetchLiveHoroscopes(
   locale: Locale
 ): Promise<{ values: Map<string, string>; attribution?: string }> {
   const language = locale === "hi-IN" ? "en" : "en";
-  const response = await fetch(`${DAILY_ENDPOINT}?lang=${language}`);
+  const response = await fetch(`${DAILY_ENDPOINT}?lang=${language}&full=1`);
   if (!response.ok) throw new Error(`Live horoscope provider failed (${response.status}).`);
 
-  const payload = await response.json() as Record<string, unknown>;
+  const payload = await response.json() as ProviderObject;
   const values = new Map<string, string>();
 
   for (const item of normalize(payload)) {
-    const sign = typeof item.sign === "string" ? item.sign.toLowerCase() : "";
-    if (sign) values.set(sign, extractText(item));
+    const sign = extractSign(item);
+    const value = extractText(item);
+    if (sign && value) values.set(sign, value);
   }
 
-  return { values, attribution: "https://sigastra.com/partners/api" };
+  const attributionObject = payload.attribution;
+  const attribution = attributionObject && typeof attributionObject === "object"
+    ? typeof (attributionObject as ProviderObject).localizedHref === "string"
+      ? (attributionObject as ProviderObject).localizedHref as string
+      : "https://sigastra.com/partners/api"
+    : "https://sigastra.com/partners/api";
+
+  return { values, attribution };
 }
