@@ -124,9 +124,25 @@ const hindiNames: Record<string, string> = {
   Shatabhisha: "शतभिषा",
 };
 
+const yogaNames: Record<string, string> = {
+  "Major Yogas": "प्रमुख योग",
+  "Chandra Yogas": "चंद्र योग",
+  "Soorya Yogas": "सूर्य योग",
+  "Inauspicious Yogas": "अशुभ योग",
+};
+
 function hindi(value: string | null): string {
   if (!value) return "प्रदाता ने उपलब्ध नहीं कराया";
-  return hindiNames[value] ?? value;
+  return hindiNames[value] ?? yogaNames[value] ?? value;
+}
+
+function localizeYoga(value: string): string {
+  return value.replace(/Major Yogas|Chandra Yogas|Soorya Yogas|Inauspicious Yogas/g, (name) => yogaNames[name] ?? name)
+    .replace(/Your kundli has (\d+) major yogas?/g, "आपकी कुंडली में $1 प्रमुख योग हैं")
+    .replace(/Your kundli has (\d+) chandra yogas?\.?/g, "आपकी कुंडली में $1 चंद्र योग हैं।")
+    .replace(/Your kundli has (\d+) soorya yogas?\.?/g, "आपकी कुंडली में $1 सूर्य योग हैं।")
+    .replace(/Your kundli has (\d+) inauspicious yogas?\.?/g, "आपकी कुंडली में $1 अशुभ योग हैं।")
+    .replace(/Your kundli has (\d+) major yogas?\.?/g, "आपकी कुंडली में $1 प्रमुख योग हैं।");
 }
 
 function mapKundli(payload: unknown): KundliResult {
@@ -143,8 +159,8 @@ function mapKundli(payload: unknown): KundliResult {
           const yoga = (item && typeof item === "object" ? item : {}) as ProviderYoga;
           const name = text(yoga.name);
           const description = text(yoga.description);
-          if (name && description) return `${name}: ${description}`;
-          return name ?? description;
+          if (name && description) return `${localizeYoga(hindi(name))}: ${localizeYoga(description)}`;
+          return name ? localizeYoga(hindi(name)) : description ? localizeYoga(description) : null;
         })
         .filter((item: string | null): item is string => Boolean(item))
     : [];
@@ -161,7 +177,7 @@ function mapKundli(payload: unknown): KundliResult {
     nakshatraPada: text(nak.pada) ?? "प्रदाता ने उपलब्ध नहीं कराया",
     nakshatraLord: hindi(text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).name : null) ?? text(nak.lord && typeof nak.lord === "object" ? (nak.lord as ProviderObject).vedic_name : null)),
     tithi: hindi(readPath(data, ["tithi", "tithi_details.tithi", "panchang.tithi", "panchang_details.tithi"])),
-    yoga: yogaDetails.length ? yogaDetails.join("\n") : hindi(readPath(data, ["yoga", "panchang.yoga", "panchang_details.yoga"])),
+    yoga: yogaDetails.length ? yogaDetails.join("\n") : localizeYoga(hindi(readPath(data, ["yoga", "panchang.yoga", "panchang_details.yoga"]))),
     karana: hindi(readPath(data, ["karana", "karana_details.karana", "panchang.karana", "panchang_details.karana"])),
     sunSign: hindi(text(sun.name)),
     manglik: hasMangalik === false ? "मंगल दोष नहीं" : hasMangalik === true ? "मंगल दोष है" : "प्रदाता ने उपलब्ध नहीं कराया",
