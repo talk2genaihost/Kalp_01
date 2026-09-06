@@ -3,7 +3,20 @@ import { unavailableCalculationProvider } from "./demo-provider.js";
 import { createLiveHoroscopeProvider, fetchLiveHoroscopes, SIGN_MAP } from "./live-horoscope-provider.js";
 import { rashis } from "./localization.js";
 import type { Locale, Rashi } from "./domain.js";
-
+interface NakshatraAdditionalInfo {
+  deity: string | null;
+  ganam: string | null;
+  symbol: string | null;
+  animalSign: string | null;
+  nadi: string | null;
+  color: string | null;
+  bestDirection: string | null;
+  syllables: string | null;
+  birthStone: string | null;
+  gender: string | null;
+  planet: string | null;
+  enemyYoni: string | null;
+}
 interface KundliResult {
   birthPlace: string;
   lagna: string;
@@ -17,6 +30,7 @@ interface KundliResult {
   sunSign: string;
   manglik: string;
   dasha: string;
+  additionalInfo: NakshatraAdditionalInfo;
 }
 
 type ProviderYoga = { name?: unknown; description?: unknown };
@@ -55,7 +69,33 @@ function text(value: unknown): string | null {
   }
   return null;
 }
+function mapNakshatraAdditionalInfo(
+  data: AnyProviderData,
+): NakshatraAdditionalInfo {
+  const details = data.nakshatra_details;
 
+  const additionalInfo =
+    details &&
+    typeof details.additional_info === "object" &&
+    details.additional_info !== null
+      ? (details.additional_info as ProviderObject)
+      : {};
+
+  return {
+    deity: text(additionalInfo.deity),
+    ganam: text(additionalInfo.ganam),
+    symbol: text(additionalInfo.symbol),
+    animalSign: text(additionalInfo.animal_sign),
+    nadi: text(additionalInfo.nadi),
+    color: text(additionalInfo.color),
+    bestDirection: text(additionalInfo.best_direction),
+    syllables: text(additionalInfo.syllables),
+    birthStone: text(additionalInfo.birth_stone),
+    gender: text(additionalInfo.gender),
+    planet: text(additionalInfo.planet),
+    enemyYoni: text(additionalInfo.enemy_yoni),
+  };
+}
 function readPath(root: unknown, paths: string[]): string | null {
   for (const path of paths) {
     let current: unknown = root;
@@ -152,6 +192,7 @@ function localizeYoga(value: string): string {
 
 function mapKundli(payload: unknown): KundliResult {
   const data = providerData(payload);
+  const additionalInfo = mapNakshatraAdditionalInfo(data);
   const requested = requestedData(payload);
   const details = data.nakshatra_details ?? {};
   const nak = (details.nakshatra as ProviderObject | undefined) ?? {};
@@ -212,7 +253,7 @@ function mapKundli(payload: unknown): KundliResult {
     sunSign: hindi(text(sun.name) ?? text(sun.sign)),
     manglik: hasMangalik === false ? "मंगल दोष नहीं" : hasMangalik === true ? "मंगल दोष है" : "प्रदाता ने उपलब्ध नहीं कराया",
     dasha: hindi(readPath(data, ["dasha", "dasha.name", "dasha_period", "dasha_period.name", "dasha_periods"])),
-  };
+ additionalInfo, };
 }
 
 function escapeHtml(value: string): string {
@@ -244,11 +285,38 @@ function renderKundli(payload: unknown): void {
     ["सूर्य राशि", result.sunSign],
     ["मंगल दोष", result.manglik],
     ["दशा", result.dasha],
-  ];
+  ];const additionalInfoFields = [
+  ["देवता", result.additionalInfo.deity],
+  ["गण", result.additionalInfo.ganam],
+  ["प्रतीक", result.additionalInfo.symbol],
+  ["पशु चिन्ह", result.additionalInfo.animalSign],
+  ["नाड़ी", result.additionalInfo.nadi],
+  ["रंग", result.additionalInfo.color],
+  ["शुभ दिशा", result.additionalInfo.bestDirection],
+  ["अक्षर", result.additionalInfo.syllables],
+  ["जन्म रत्न", result.additionalInfo.birthStone],
+  ["लिंग", result.additionalInfo.gender],
+  ["ग्रह", result.additionalInfo.planet],
+  ["शत्रु योनि", result.additionalInfo.enemyYoni],
+] as const;
 
   answer.innerHTML = `<h3>वास्तविक वैदिक कुंडली</h3><p>यह विवरण जन्म-समय और स्थान के आधार पर प्रदाता से प्राप्त हुआ है।</p><div class="kundli-grid">${fields
     .map(([label, value]) => `<div class="kundli-item"><span class="kundli-item-label">${label}</span><strong>${escapeHtml(value).replace(/\n/g, "<br>")}</strong></div>`)
-    .join("")}</div><details><summary>पूरा प्रदाता डेटा देखें</summary><pre class="kundli-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>`;
+    .join("")}</div><details class="kundli-additional-info">
+  <summary>नक्षत्र की विस्तृत जानकारी</summary>
+  <div class="kundli-grid kundli-additional-grid">
+    ${additionalInfoFields
+      .map(
+        ([label, value]) => `
+          <div class="kundli-field">
+            <span class="kundli-label">${label}</span>
+            <strong>${escapeHtml(value ?? "प्रदाता ने उपलब्ध नहीं कराया")}</strong>
+          </div>
+        `,
+      )
+      .join("")}
+  </div>
+</details><details><summary>पूरा प्रदाता डेटा देखें</summary><pre class="kundli-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>`;
 }
 
 async function getAccessToken(): Promise<string> {
