@@ -12,15 +12,6 @@ on:
       - 'genie/v0.1/**'
       - '.github/workflows/gini-v0.1.yml'
   workflow_dispatch:
-    inputs:
-      stress_scenarios:
-        description: 'Number of stress-test scenarios'
-        required: false
-        default: '1000'
-        type: string
-
-permissions:
-  contents: read
 
 jobs:
   smoke:
@@ -32,15 +23,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install test dependency
+      - name: Install pytest
         run: python -m pip install --upgrade pytest
-
       - name: Run unit and contract tests
         run: python -m pytest -q
 
@@ -54,16 +42,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install test dependency
+      - name: Install pytest
         run: python -m pip install --upgrade pytest
-
       - name: Run stress test
         env:
-          GINI_STRESS_SCENARIOS: ${{ github.event.inputs.stress_scenarios || '1000' }}
+          GINI_STRESS_SCENARIOS: '1000'
         run: python -m pytest -q tests/test_stress.py -s
