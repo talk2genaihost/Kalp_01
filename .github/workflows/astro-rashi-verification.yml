@@ -15,7 +15,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           git init .
@@ -44,3 +43,16 @@ jobs:
 
       - name: Test suite
         run: npm test
+
+      - name: Gini v0.1 smoke tests
+        working-directory: genie/v0.1
+        run: |
+          python3 --version
+          python3 -m pip install --upgrade pytest
+          PYTHONPATH=. python3 -m pytest -q
+
+      - name: Gini v0.1 1000-scenario stress test
+        working-directory: genie/v0.1
+        env:
+          GINI_STRESS_SCENARIOS: '1000'
+        run: PYTHONPATH=. python3 -m pytest -q tests/test_stress.py -s
