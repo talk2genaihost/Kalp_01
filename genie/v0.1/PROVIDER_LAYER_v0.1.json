@@ -1,0 +1,17 @@
+{
+  "component": "KALP Gini Generation Provider Layer",
+  "version": "0.1.0",
+  "status": "IMPLEMENTED_PROVIDER_BOUNDARY",
+  "configured_provider": "none unless OPENAI_API_KEY is explicitly supplied at runtime",
+  "implemented": {
+    "openai": {
+      "adapter": true,
+      "image": "implemented",
+      "voice": "implemented",
+      "video": "not implemented in this pass",
+      "music": "not implemented in this pass"
+    }
+  },
+  "credential_policy": "environment-only; never persisted in Gini artifacts",
+  "core_contract_unchanged": true
+}
