@@ -81,6 +81,9 @@ PYTHONPATH=. python -m pytest -q
 GINI_STRESS_SCENARIOS=1000 PYTHONPATH=. python -m pytest -q tests/test_stress.py -s
 ```
 
+### GitHub CI
+The repository runs the Gini unit/contract suite and the configurable stress suite through GitHub Actions. CI uses deterministic mock adapters and does not require provider credentials.
+
 ### What is deliberately NOT connected
 Real image/video/voice/music generation engines are not required for the v0.1 simulation path. No MoneyPrinterTurbo dependency or adapter is included.
 
