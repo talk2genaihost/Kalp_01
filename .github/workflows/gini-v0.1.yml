@@ -1,16 +1,8 @@
 name: Gini v0.1 Validation
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'genie/v0.1/**'
-      - '.github/workflows/gini-v0.1.yml'
   push:
     branches: [main]
-    paths:
-      - 'genie/v0.1/**'
-      - '.github/workflows/gini-v0.1.yml'
   workflow_dispatch:
 
 jobs:
