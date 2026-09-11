@@ -1,82 +1,164 @@
 import json
 
-SCENES=[
- {'purpose':'Open with a visual hook built around the researched audience need.','terms':['wide','environment','hero','camera']},
- {'purpose':'Introduce the product as the answer to the audience need.','terms':['dolly','front','product','camera']},
- {'purpose':'Show visual proof of the core proposition.','terms':['wide','nature','outdoor','hero']},
- {'purpose':'Translate the promise into a lived human experience.','terms':['window','interior','normal','detail']},
- {'purpose':'Show the human/lifestyle payoff and emotional connection.','terms':['human','steadicam','lifestyle','outdoor']},
- {'purpose':'Resolve with brand identity and a clear action.','terms':['hero','brand','lockup','cta']},
+VERSION = '0.8.2-pyodide-safe'
+
+SCENE_TERMS = [
+    ['wide','environment','hero','camera'],
+    ['dolly','front','product','camera'],
+    ['wide','nature','outdoor','hero'],
+    ['window','interior','normal','detail'],
+    ['human','steadicam','lifestyle','outdoor'],
+    ['hero','brand','lockup','cta'],
 ]
 
-CLAIM_TERMS={
- 'feature':['thermal','tip','retractable','refillable','waterproof','washable','smudge-proof','smudge proof','quick-dry','quick dry','fast-drying','fast drying','non-toxic','non toxic','durable','leak-proof','leak proof','shavings','residue','cartridge','eraser mechanism'],
- 'performance':['lasts','long-lasting','long lasting','writes smoothly','smooth writing','dries instantly','instant drying','erases completely','erases cleanly','without tearing','without shavings','zero residue','no residue','trace-free','without a trace'],
- 'comparative':['best','number one','#1','most','better than','faster than','more durable','guaranteed']
-}
+CLAIM_TERMS = [
+    'thermal','tip','retractable','refillable','waterproof','washable','smudge-proof',
+    'quick-dry','fast-drying','non-toxic','durable','leak-proof','shavings','residue',
+    'cartridge','eraser mechanism','lasts','long-lasting','writes smoothly','smooth writing',
+    'dries instantly','instant drying','erases completely','erases cleanly','without tearing',
+    'without shavings','zero residue','no residue','trace-free','without a trace','best',
+    'number one','#1','better than','faster than','more durable','guaranteed'
+]
 
-def norm(s): return str(s or '').lower()
-def fallback_lines(brief):
- brand=brief.get('brand') or 'आपका ब्रांड'; product=brief.get('product') or 'यह प्रोडक्ट'; audience=brief.get('audience') or 'आज की पीढ़ी'; cta=brief.get('cta') or 'जानिए अधिक'
- return [f'{audience}, अपनी रोज़मर्रा की दुनिया में एक ऐसी पसंद पर ध्यान दीजिए जो अलग महसूस हो।',f'{product} सिर्फ़ एक नाम नहीं—यह उस अनुभव को बेहतर बनाने का एक तरीका है।',f'जब सही चीज़ आपकी ज़रूरत और आपकी शैली, दोनों से जुड़ जाए, तो बात याद रहती है।',f'हर दिन के छोटे पलों में वही जुड़ाव धीरे-धीरे भरोसे में बदलता है।',f'{brand} इसी पहचान को आपके लिए और प्रासंगिक बनाने की कोशिश करता है।',f'{brand} — {cta}।']
+def norm(value):
+    return str(value or '').lower()
 
-def ai_scene_data(brief):
- ai=brief.get('ai_direction') or {}; scenes=ai.get('scenes')
- if not isinstance(scenes,list) or len(scenes)!=6: return None
- out=[]
- for s in scenes:
-  if not isinstance(s,dict): return None
-  vo=str(s.get('vo') or '').strip(); purpose=str(s.get('story_purpose') or s.get('purpose') or '').strip()
-  if not vo or not purpose: return None
-  out.append({'vo':vo,'story_purpose':purpose,'visual_direction':str(s.get('visual_direction') or '').strip(),'sound_direction':str(s.get('sound_direction') or '').strip(),'on_screen':str(s.get('on_screen') or '').strip()})
- return out
+def fallback(brief):
+    brand = brief.get('brand') or 'आपका ब्रांड'
+    product = brief.get('product') or 'यह प्रोडक्ट'
+    audience = brief.get('audience') or 'आज की पीढ़ी'
+    cta = brief.get('cta') or 'जानिए अधिक'
+    return [
+        audience + ', अपनी रोज़मर्रा की दुनिया में एक ऐसी पसंद पर ध्यान दीजिए जो अलग महसूस हो।',
+        product + ' सिर्फ़ एक नाम नहीं—यह उस अनुभव को बेहतर बनाने का एक तरीका है।',
+        'जब सही चीज़ आपकी ज़रूरत और आपकी शैली, दोनों से जुड़ जाए, तो बात याद रहती है।',
+        'हर दिन के छोटे पलों में वही जुड़ाव धीरे-धीरे भरोसे में बदलता है।',
+        brand + ' इसी पहचान को आपके लिए और प्रासंगिक बनाने की कोशिश करता है।',
+        brand + ' — ' + cta + '।'
+    ]
 
-def _grounding_text(brief):
- i=brief.get('intent_model') or {}; facts=i.get('user_stated_facts') or {}; ctx=brief.get('research_context') or {}; verified=ctx.get('verified_facts') or []
- return norm(json.dumps({'intent_facts':facts,'product':i.get('product'),'category':i.get('category'),'verified_facts':verified},ensure_ascii=False))
+def claim_guard(brief, scenes):
+    intent = brief.get('intent_model') or {}
+    facts = intent.get('user_stated_facts') or {}
+    research = brief.get('research_context') or {}
+    verified = research.get('verified_facts') or []
+    grounding = norm(json.dumps({'facts':facts,'product':intent.get('product'),'category':intent.get('category'),'verified':verified}, ensure_ascii=False))
+    violations = []
+    for index, scene in enumerate(scenes, 1):
+        text = ' '.join([str(scene.get('vo') or ''), str(scene.get('visual_direction') or ''), str(scene.get('on_screen') or '')])
+        low = norm(text)
+        for term in CLAIM_TERMS:
+            if term in low and term not in grounding:
+                violations.append({'scene':index,'term':term,'reason':'Unsupported product claim/property.'})
+    return {'status':'PASS' if not violations else 'BLOCKED','evidence_policy':'USER_STATED_FACTS + VERIFIED_FACTS_ONLY','violation_count':len(violations),'violations':violations}
 
-def claim_guard(brief, ai_scenes):
- grounding=_grounding_text(brief); violations=[]
- for idx,s in enumerate(ai_scenes or [],1):
-  text=' '.join([s.get('vo',''),s.get('visual_direction',''),s.get('on_screen','')]); low=norm(text)
-  for kind,terms in CLAIM_TERMS.items():
-   for term in terms:
-    if term in low and term not in grounding:
-     violations.append({'scene':idx,'type':kind,'term':term,'text':text[:500],'reason':'Product claim/property is not grounded in explicit user facts or verified research evidence.'})
- unique=[]; seen=set()
- for v in violations:
-  key=(v['scene'],v['type'],v['term'])
-  if key not in seen: seen.add(key); unique.append(v)
- return {'status':'PASS' if not unique else 'BLOCKED','evidence_policy':'USER_STATED_FACTS + VERIFIED_FACTS_ONLY','violation_count':len(unique),'violations':unique}
+def choose_effects(rows, terms, limit=3):
+    scored = []
+    for row in rows or []:
+        text = ' '.join([norm(row.get('Shortcut')), norm(row.get('Capability')), norm(row.get('Primary Use / Intent')), norm(row.get('Scene Recipe')), norm(row.get('Visual / Execution Notes')), norm(row.get('Ad Role'))])
+        score = 0
+        for term in terms:
+            if norm(term) in text:
+                score += 1
+        if score:
+            scored.append((score, row))
+    scored.sort(key=lambda item: (-item[0], str(item[1].get('Shortcut') or '')))
+    return [item[1] for item in scored[:limit]]
 
-class BrowserEffectLibrary:
- def __init__(self,rows): self.rows=rows or []; self.by_shortcut={r.get('Shortcut'):r for r in self.rows if r.get('Shortcut')}
- def get(self,shortcut): return self.by_shortcut.get(shortcut)
- def count(self): return len(self.rows)
- def search(self,terms,limit=6):
-  terms=[norm(x) for x in terms]; scored=[]
-  for r in self.rows:
-   text=' '.join(norm(r.get(k,'')) for k in ['Shortcut','Capability','Primary Use / Intent','Scene Recipe','Visual / Execution Notes','Ad Role'])
-   score=sum(2 if term in norm(r.get('Shortcut','')) else 1 for term in terms if term in text)
-   if score: scored.append((score,r))
-  scored.sort(key=lambda x:(-x[0],x[1].get('Shortcut',''))); return [r for _,r in scored[:limit]]
+def execute(rows, brief):
+    ai = brief.get('ai_direction') or {}
+    ai_scenes = ai.get('scenes') if isinstance(ai.get('scenes'), list) and len(ai.get('scenes')) == 6 else None
+    fallback_lines = fallback(brief)
+    working = []
+    for index in range(6):
+        if ai_scenes:
+            source = ai_scenes[index] if isinstance(ai_scenes[index], dict) else {}
+            scene = {
+                'story_purpose': str(source.get('story_purpose') or source.get('purpose') or 'Develop the advertising story.'),
+                'visual_direction': str(source.get('visual_direction') or ''),
+                'vo': str(source.get('vo') or fallback_lines[index]),
+                'sound_direction': str(source.get('sound_direction') or ''),
+                'on_screen': str(source.get('on_screen') or '')
+            }
+        else:
+            scene = {'story_purpose':'Develop the advertising story.','visual_direction':'','vo':fallback_lines[index],'sound_direction':'','on_screen':''}
+        working.append(scene)
 
-class AdManthan:
- def __init__(self,library): self.library=library
- def strategy(self,brief):
-  objective=brief.get('objective') or 'Brand Awareness'; tone=brief.get('tone','Cinematic'); ai=brief.get('ai_direction') or {}
-  return {'objective':objective,'tone':tone,'audience':brief.get('audience',''),'key_message':ai.get('key_message') or brief.get('message') or objective,'creative_route':ai.get('creative_route') or 'Audience-led brand story','narrative_arc':ai.get('narrative_arc') or 'Hook → need → product meaning → experience → brand recall → CTA','duration_seconds':15,'scene_count':6,'language':brief.get('language','Hindi'),'cta':brief.get('cta','Learn more'),'brand':brief.get('brand',''),'product':brief.get('product',''),'research_informed':bool(brief.get('research_context')),'ai_composed':bool(ai.get('scenes'))}
- def generate(self,brief):
-  brand=brief.get('brand') or 'Brand'; strategy=self.strategy(brief); ai_scenes=ai_scene_data(brief); fallback=fallback_lines(brief); guard=claim_guard(brief,ai_scenes or []); scenes=[]
-  for i,template in enumerate(SCENES,1):
-   candidates=self.library.search(template['terms'],6); selected=candidates[:3]
-   if i==6:
-    selected=[self.library.get(k) for k in ['/hero_lock','/brand_lockup','/cta_endcard']]; selected=[x for x in selected if x]
-   effects=[{'shortcut':r.get('Shortcut'),'capability':r.get('Capability'),'intent':r.get('Primary Use / Intent'),'application':r.get('Scene Recipe'),'sheet':r.get('sheet','')} for r in selected]
-   ai=ai_scenes[i-1] if ai_scenes else {'vo':fallback[i-1],'story_purpose':template['purpose'],'visual_direction':'','sound_direction':'','on_screen':brief.get('cta','Learn more') if i==6 else ''}
-   scenes.append({'scene':i,'timecode':f'{(i-1)*2.5:.1f}-{i*2.5:.1f}s','story_purpose':ai['story_purpose'],'visual_direction':ai['visual_direction'],'effects':effects,'missing_effects':[],'vo':ai['vo'],'sound_direction':ai['sound_direction'],'sound':['/continuity_bridge'] if i not in (1,6) else (['/riser_short','/nature_ambience'] if i==1 else ['/brand_sting','/voiceover_cta']),'on_screen':ai['on_screen'],'effect_status':'VERIFIED LIBRARY MATCH' if len(effects)==3 else 'PARTIAL LIBRARY MATCH','claim_guard_status':'BLOCKED' if guard['status']=='BLOCKED' else 'PASS'})
-  continuous=' '.join(x['vo'] for x in scenes); release_status='HOLD_FOR_CLAIM_REVIEW' if guard['status']=='BLOCKED' else 'RELEASE_ELIGIBLE'
-  return {'engine':'KALP AdManthan Python Engine','version':'0.8-claim-evidence-guard','execution':'Pyodide/WebAssembly','brand':brand,'product':brief.get('product',''),'objective':strategy['objective'],'duration_seconds':15,'scene_count':6,'library_count':self.library.count(),'strategy':strategy,'continuous_vo':continuous,'script_mode':'AI-composed six-beat continuous VO with deterministic fallback','claim_guard':guard,'release_status':release_status,'scenes':scenes,'production_package':{'format':'15-second advertisement','aspect_ratio':'16:9','scene_count':6,'deliverables':['AI intent model','research context','claim and evidence guard','final objective','strategy','AI six-beat continuous VO','storyboard','verified effect selections','sound design','production manifest'],'cta':brief.get('cta','Learn more'),'engine_status':'EXECUTED','brief_driven':True,'research_informed':bool(brief.get('research_context')),'ai_composed':bool(ai_scenes),'raw_intent_excluded_from_creative':True}}
+    guard = claim_guard(brief, working)
+    output_scenes = []
+    for index in range(6):
+        effects = choose_effects(rows, SCENE_TERMS[index], 3)
+        effect_data = []
+        for row in effects:
+            effect_data.append({
+                'shortcut': row.get('Shortcut'),
+                'capability': row.get('Capability'),
+                'intent': row.get('Primary Use / Intent'),
+                'application': row.get('Scene Recipe'),
+                'sheet': row.get('sheet','')
+            })
+        scene = working[index]
+        output_scenes.append({
+            'scene':index + 1,
+            'timecode':str(index * 2.5) + '-' + str((index + 1) * 2.5) + 's',
+            'story_purpose':scene['story_purpose'],
+            'visual_direction':scene['visual_direction'],
+            'effects':effect_data,
+            'missing_effects':[],
+            'vo':scene['vo'],
+            'sound_direction':scene['sound_direction'],
+            'sound':[],
+            'on_screen':scene['on_screen'],
+            'effect_status':'VERIFIED LIBRARY MATCH' if len(effect_data) == 3 else 'PARTIAL LIBRARY MATCH',
+            'claim_guard_status':'BLOCKED' if guard['status'] == 'BLOCKED' else 'PASS'
+        })
 
-def execute(rows,brief): return AdManthan(BrowserEffectLibrary(rows)).generate(brief)
-def generate(rows,brand,product,objective='Brand Awareness'): return execute(rows,{'brand':brand,'product':product,'objective':objective})
+    objective = brief.get('objective') or 'Brand Awareness'
+    strategy = {
+        'objective':objective,
+        'tone':brief.get('tone') or 'Cinematic',
+        'audience':brief.get('audience') or '',
+        'key_message':ai.get('key_message') or brief.get('message') or objective,
+        'creative_route':ai.get('creative_route') or 'Audience-led brand story',
+        'narrative_arc':ai.get('narrative_arc') or 'Hook → need → product meaning → experience → brand recall → CTA',
+        'duration_seconds':15,
+        'scene_count':6,
+        'language':brief.get('language') or 'Hindi',
+        'cta':brief.get('cta') or 'Learn more',
+        'brand':brief.get('brand') or '',
+        'product':brief.get('product') or '',
+        'research_informed':bool(brief.get('research_context')),
+        'ai_composed':bool(ai_scenes)
+    }
+    return {
+        'engine':'KALP AdManthan Python Engine',
+        'version':VERSION,
+        'execution':'Pyodide/WebAssembly',
+        'brand':brief.get('brand') or 'Brand',
+        'product':brief.get('product') or '',
+        'objective':objective,
+        'duration_seconds':15,
+        'scene_count':6,
+        'library_count':len(rows or []),
+        'strategy':strategy,
+        'continuous_vo':' '.join([scene['vo'] for scene in output_scenes]),
+        'script_mode':'AI-composed six-beat continuous VO with deterministic fallback',
+        'claim_guard':guard,
+        'release_status':'HOLD_FOR_CLAIM_REVIEW' if guard['status'] == 'BLOCKED' else 'RELEASE_ELIGIBLE',
+        'scenes':output_scenes,
+        'production_package':{
+            'format':'15-second advertisement',
+            'aspect_ratio':'16:9',
+            'scene_count':6,
+            'deliverables':['AI intent model','research context','claim and evidence guard','final objective','strategy','AI six-beat continuous VO','storyboard','verified effect selections','sound design','production manifest'],
+            'cta':brief.get('cta') or 'Learn more',
+            'engine_status':'EXECUTED',
+            'brief_driven':True,
+            'research_informed':bool(brief.get('research_context')),
+            'ai_composed':bool(ai_scenes),
+            'raw_intent_excluded_from_creative':True
+        }
+    }
+
+def generate(rows, brand, product, objective='Brand Awareness'):
+    return execute(rows, {'brand':brand,'product':product,'objective':objective})
