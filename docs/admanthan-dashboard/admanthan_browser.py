@@ -1,18 +1,33 @@
 import json
 
-VERSION = '0.8.3-evidence-safe'
+VERSION = '0.8.4-claim-context'
 
 SCENE_TERMS = [['wide','environment','hero','camera'],['dolly','front','product','camera'],['wide','nature','outdoor','hero'],['window','interior','normal','detail'],['human','steadicam','lifestyle','outdoor'],['hero','brand','lockup','cta']]
 CLAIM_TERMS = ['thermal','tip','retractable','refillable','waterproof','washable','smudge-proof','quick-dry','fast-drying','non-toxic','durable','leak-proof','shavings','residue','cartridge','eraser mechanism','lasts','long-lasting','writes smoothly','smooth writing','dries instantly','instant drying','erases completely','erases cleanly','without tearing','without shavings','zero residue','no residue','trace-free','without a trace','best','number one','#1','better than','faster than','more durable','guaranteed']
 SAFE_REPLACEMENTS = [('zero residue','the erased mark'),('no residue','the erased mark'),('without a trace','the erased mark'),('trace-free','the erased mark'),('erases completely','erases'),('erases cleanly','erases'),('cleanly','away'),('instantly','then'),('instant','simple'),('seamless','continuous'),('premium',''),('perfect',''),('smooth','')]
 
+# Terms that are normally physical-object language rather than product-performance claims.
+OBJECT_CONTEXT_TERMS = ['pen tip','tip of the pen','pen-tip','tip pressing','tip pressing on paper','pen tip pressing','tip writes','tip of an erasable pen']
+
 def norm(value): return str(value or '').lower()
+
 def sanitize_text(value, grounding):
     text=str(value or '')
     low_ground=norm(grounding)
     for term,replacement in SAFE_REPLACEMENTS:
         if term in norm(text) and term not in low_ground: text=text.replace(term,replacement)
     return ' '.join(text.split())
+
+def claim_term_is_property(term, text):
+    low=norm(text)
+    if term != 'tip': return term in low
+    # 'tip' alone is not sufficient evidence of a product claim. Treat it as
+    # a claim only when paired with a property/mechanism descriptor.
+    property_context=['thermal tip','retractable tip','replaceable tip','durable tip','special tip','erasable tip','advanced tip','fine tip','micro tip','felt tip','metal tip','rubber tip','tip technology','tip mechanism']
+    if any(p in low for p in property_context): return True
+    # Normal scene language such as 'pen tip' / 'tip of the pen' is object description.
+    if any(p in low for p in OBJECT_CONTEXT_TERMS): return False
+    return False
 
 def fallback(brief):
     brand=brief.get('brand') or 'आपका ब्रांड'; product=brief.get('product') or 'यह प्रोडक्ट'; audience=brief.get('audience') or 'आज की पीढ़ी'; cta=brief.get('cta') or 'जानिए अधिक'
@@ -22,9 +37,11 @@ def claim_guard(brief,scenes):
     intent=brief.get('intent_model') or {}; facts=intent.get('user_stated_facts') or {}; research=brief.get('research_context') or {}; verified=research.get('verified_facts') or []
     grounding=norm(json.dumps({'facts':facts,'product':intent.get('product'),'category':intent.get('category'),'verified':verified},ensure_ascii=False)); violations=[]
     for index,scene in enumerate(scenes,1):
-        low=norm(' '.join([str(scene.get('vo') or ''),str(scene.get('visual_direction') or ''),str(scene.get('on_screen') or '')]))
+        text=' '.join([str(scene.get('vo') or ''),str(scene.get('visual_direction') or ''),str(scene.get('on_screen') or '')])
+        low=norm(text)
         for term in CLAIM_TERMS:
-            if term in low and term not in grounding: violations.append({'scene':index,'term':term,'reason':'Unsupported product claim/property.'})
+            if claim_term_is_property(term, text) and term not in grounding:
+                violations.append({'scene':index,'term':term,'reason':'Unsupported product claim/property.'})
     return {'status':'PASS' if not violations else 'BLOCKED','evidence_policy':'USER_STATED_FACTS + VERIFIED_FACTS_ONLY','violation_count':len(violations),'violations':violations}
 
 def choose_effects(rows,terms,limit=3):
