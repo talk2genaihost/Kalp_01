@@ -49,33 +49,17 @@ jobs:
           cp -R /tmp/weather-source/weather-dashboard/. /tmp/published-site/weather-dashboard/
           cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
           cp -R docs/admanthan-dashboard/. /tmp/published-site/admanthan/
+          cp docs/admanthan-dashboard/studio.html /tmp/published-site/admanthan/index.html
 
           cat > /tmp/published-site/index.html <<'EOF'
           <!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>KALP Applications</title>
-            </head>
-            <body>
-              <h1>KALP Applications</h1>
-              <ul>
-                <li><a href="./weather-dashboard/">Weather Dashboard</a></li>
-                <li><a href="./astro-rashi/">Astro Rashi Dashboard</a></li>
-                <li><a href="./admanthan/">KALP AdManthan</a></li>
-              </ul>
-            </body>
-          </html>
+          <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>KALP Applications</title></head>
+          <body><h1>KALP Applications</h1><ul><li><a href="./weather-dashboard/">Weather Dashboard</a></li><li><a href="./astro-rashi/">Astro Rashi Dashboard</a></li><li><a href="./admanthan/">KALP AdManthan</a></li></ul></body></html>
           EOF
 
           cat > /tmp/published-site/astro-rashi.html <<'EOF'
-          <!doctype html>
-          <meta http-equiv="refresh" content="0; url=./astro-rashi/" />
-          <link rel="canonical" href="./astro-rashi/" />
-          <title>Astro Rashi Dashboard</title>
+          <!doctype html><meta http-equiv="refresh" content="0; url=./astro-rashi/" /><link rel="canonical" href="./astro-rashi/" /><title>Astro Rashi Dashboard</title>
           EOF
-
           touch /tmp/published-site/.nojekyll
 
       - name: Publish static site to gh-pages
