@@ -1,4 +1,4 @@
-name: Deploy Astro Rashi to GitHub Pages
+name: Deploy KALP Applications to GitHub Pages
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
           git checkout "${GITHUB_SHA}"
 
-      - name: Restore Weather application from its source branch
+      - name: Restore Weather application from source branch
         run: |
           set -eu
           rm -rf /tmp/weather-source
@@ -38,15 +38,17 @@ jobs:
       - name: Build Astro Rashi browser slice
         run: npm run build:astro-rashi
 
-      - name: Assemble separate application pages
+      - name: Assemble published applications
         run: |
           set -eu
           rm -rf /tmp/published-site
           mkdir -p /tmp/published-site/weather-dashboard
           mkdir -p /tmp/published-site/astro-rashi
+          mkdir -p /tmp/published-site/admanthan
 
           cp -R /tmp/weather-source/weather-dashboard/. /tmp/published-site/weather-dashboard/
           cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
+          cp -R docs/admanthan-dashboard/. /tmp/published-site/admanthan/
 
           cat > /tmp/published-site/index.html <<'EOF'
           <!doctype html>
@@ -61,6 +63,7 @@ jobs:
               <ul>
                 <li><a href="./weather-dashboard/">Weather Dashboard</a></li>
                 <li><a href="./astro-rashi/">Astro Rashi Dashboard</a></li>
+                <li><a href="./admanthan/">KALP AdManthan</a></li>
               </ul>
             </body>
           </html>
@@ -87,5 +90,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Deploy Astro Rashi to GitHub Pages"
+          git commit -m "Deploy KALP Applications"
           git push --force origin gh-pages
