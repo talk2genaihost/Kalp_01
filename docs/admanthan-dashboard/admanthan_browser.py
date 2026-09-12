@@ -1,114 +1,139 @@
 import json
+import re
 
-VERSION = '0.8.5-semantic-effects'
-CLAIM_TERMS = ['thermal','tip','retractable','refillable','waterproof','washable','smudge-proof','quick-dry','fast-drying','non-toxic','durable','leak-proof','shavings','residue','cartridge','eraser mechanism','lasts','long-lasting','writes smoothly','smooth writing','dries instantly','instant drying','erases completely','erases cleanly','without tearing','without shavings','zero residue','no residue','trace-free','without a trace','best','number one','#1','better than','faster than','more durable','guaranteed']
-SAFE_REPLACEMENTS = [('zero residue','the erased mark'),('no residue','the erased mark'),('without a trace','the erased mark'),('trace-free','the erased mark'),('erases completely','erases'),('erases cleanly','erases'),('cleanly','away'),('instantly','then'),('instant','simple'),('seamless','continuous'),('premium',''),('perfect',''),('smooth','')]
-OBJECT_CONTEXT_TERMS = ['pen tip','tip of the pen','pen-tip','tip pressing','tip pressing on paper','pen tip pressing','tip writes','tip of an erasable pen']
-
-def norm(value): return str(value or '').lower()
-
-def sanitize_text(value, grounding):
-    text=str(value or '')
-    low_ground=norm(grounding)
-    for term,replacement in SAFE_REPLACEMENTS:
-        if term in norm(text) and term not in low_ground: text=text.replace(term,replacement)
+VERSION='0.8.6-effect-quality-gate'
+CLAIM_TERMS=['thermal','tip','retractable','refillable','waterproof','washable','smudge-proof','quick-dry','fast-drying','non-toxic','durable','leak-proof','shavings','residue','cartridge','eraser mechanism','lasts','long-lasting','writes smoothly','smooth writing','dries instantly','instant drying','erases completely','erases cleanly','without tearing','without shavings','zero residue','no residue','trace-free','without a trace','best','number one','#1','better than','faster than','more durable','guaranteed']
+SAFE_REPLACEMENTS=[('zero residue','the erased mark'),('no residue','the erased mark'),('without a trace','the erased mark'),('trace-free','the erased mark'),('erases completely','erases'),('erases cleanly','erases'),('cleanly','away'),('instantly','then'),('instant','simple'),('seamless','continuous'),('premium',''),('perfect',''),('smooth','')]
+OBJECT_CONTEXT_TERMS=['pen tip','tip of the pen','pen-tip','tip pressing','tip pressing on paper','pen tip pressing','tip writes','tip of an erasable pen']
+def norm(v): return str(v or '').lower()
+def sanitize_text(v,g):
+    text=str(v or ''); low=norm(g)
+    for term,repl in SAFE_REPLACEMENTS:
+        if term in norm(text) and term not in low: text=text.replace(term,repl)
     return ' '.join(text.split())
-
-def claim_term_is_property(term, text):
+def claim_term_is_property(term,text):
     low=norm(text)
-    if term != 'tip': return term in low
-    property_context=['thermal tip','retractable tip','replaceable tip','durable tip','special tip','erasable tip','advanced tip','fine tip','micro tip','felt tip','metal tip','rubber tip','tip technology','tip mechanism']
-    if any(p in low for p in property_context): return True
-    if any(p in low for p in OBJECT_CONTEXT_TERMS): return False
-    return False
-
+    if term!='tip': return term in low
+    props=['thermal tip','retractable tip','replaceable tip','durable tip','special tip','erasable tip','advanced tip','fine tip','micro tip','felt tip','metal tip','rubber tip','tip technology','tip mechanism']
+    return any(p in low for p in props) and not any(p in low for p in OBJECT_CONTEXT_TERMS)
 def fallback(brief):
     brand=brief.get('brand') or 'आपका ब्रांड'; product=brief.get('product') or 'यह प्रोडक्ट'; audience=brief.get('audience') or 'आज की पीढ़ी'; cta=brief.get('cta') or 'जानिए अधिक'
     return [audience+', अपनी रोज़मर्रा की दुनिया में एक ऐसी पसंद पर ध्यान दीजिए जो अलग महसूस हो।',product+' उस अनुभव को बेहतर बनाने का एक तरीका है।','जब लिखते हुए कोई गलती हो, तो उसे मिटाकर आगे बढ़िए।','अपने विचारों को फिर से लिखते हुए कहानी को आगे ले जाइए।',brand+' आपके लिखने के अनुभव को आपके लिए प्रासंगिक बनाने की कोशिश करता है।',brand+' — '+cta+'।']
-
 def claim_guard(brief,scenes):
     intent=brief.get('intent_model') or {}; facts=intent.get('user_stated_facts') or {}; research=brief.get('research_context') or {}; verified=research.get('verified_facts') or []
     grounding=norm(json.dumps({'facts':facts,'product':intent.get('product'),'category':intent.get('category'),'verified':verified},ensure_ascii=False)); violations=[]
-    for index,scene in enumerate(scenes,1):
-        text=' '.join([str(scene.get('vo') or ''),str(scene.get('visual_direction') or ''),str(scene.get('on_screen') or '')])
+    for i,s in enumerate(scenes,1):
+        text=' '.join([str(s.get('vo') or ''),str(s.get('visual_direction') or ''),str(s.get('on_screen') or '')])
         for term in CLAIM_TERMS:
-            if claim_term_is_property(term, text) and term not in grounding:
-                violations.append({'scene':index,'term':term,'reason':'Unsupported product claim/property.'})
+            if claim_term_is_property(term,text) and term not in grounding: violations.append({'scene':i,'term':term,'reason':'Unsupported product claim/property.'})
     return {'status':'PASS' if not violations else 'BLOCKED','evidence_policy':'USER_STATED_FACTS + VERIFIED_FACTS_ONLY','violation_count':len(violations),'violations':violations}
-
-def scene_terms(scene):
-    text=' '.join([scene.get('story_purpose',''),scene.get('visual_direction',''),scene.get('vo',''),scene.get('sound_direction',''),scene.get('on_screen','')])
-    low=norm(text)
-    groups=[]
-    vocab={
-      'writing':['write','writing','pen','paper','ink','लिख','कलम','स्याही','कागज'],
-      'erase':['erase','erasing','rub','remove','ink','मिट','मिटाना','रगड़','स्याही'],
-      'product':['product','pen','erasable','पेन','प्रोडक्ट'],
-      'macro':['close-up','close up','macro','detail','close','नज़दीक','डिटेल'],
-      'camera':['camera','dolly','push','pull','orbit','crane','handheld','lens','कैमरा'],
-      'hand':['hand','हाथ','finger','उंगली'],
-      'paper':['paper','sheet','page','desk','कागज','पन्ना'],
-      'hero':['hero','brand','lockup','logo','product hero'],
-      'sound':['sound','music','voice','sfx','writing sound','rubbing sound','आवाज़','संगीत']
-    }
-    for group,terms in vocab.items():
-        if any(t in low for t in terms): groups.append(group)
-    return groups
-
+def scene_profile(scene):
+    text=' '.join([scene.get('story_purpose',''),scene.get('visual_direction',''),scene.get('vo',''),scene.get('sound_direction',''),scene.get('on_screen','')]); low=norm(text)
+    def anyof(xs): return any(x in low for x in xs)
+    actions=[]
+    if anyof(['write','writing','scrib','pen moves','lिख','लिख','कलम','स्याही']): actions += ['writing','product_demo']
+    if anyof(['erase','erasing','rub','remove','मिट','रगड़','erase mark']): actions += ['erasing','product_demo']
+    if anyof(['reveal','unveil','open','pack','box','unbox','खुल']): actions += ['reveal']
+    if anyof(['rotate','spin','360','turntable']): actions += ['product_rotation']
+    if anyof(['macro','close-up','close up','detail','नज़दीक','डिटेल']): actions += ['macro_detail']
+    if anyof(['hero','logo','brand lockup','final frame','cta']): actions += ['hero_brand']
+    if anyof(['hand','finger','हाथ','उंगली']): actions += ['hand_interaction']
+    if anyof(['paper','sheet','page','desk','कागज','पन्ना']): actions += ['paper_context']
+    if anyof(['camera','dolly','push in','pull out','orbit','crane','lens','कैमरा']): actions += ['camera_motion']
+    if anyof(['transition','cut','match cut','whip','कट']): actions += ['edit_transition']
+    if anyof(['sound','music','voice','sfx','whoosh','आवाज़','संगीत']): actions += ['audio']
+    if not actions: actions=['general_story']
+    return {'actions':list(dict.fromkeys(actions)),'low':low}
+def effect_profile(row):
+    text=' '.join(norm(row.get(k)) for k in ['Shortcut','Capability','Primary Use / Intent','Scene Recipe','Visual / Execution Notes','Ad Role','Google-Ads Alignment'])
+    sc=norm(row.get('Shortcut')); cap=norm(row.get('Capability'))
+    p={'family':'unknown','functions':set(),'roles':set(),'tokens':set(),'hard':set()}
+    if sc.startswith(('/dolly','/truck','/pedestal','/crane','/orbit','/arc','/pan','/tilt','/push','/pull','/tracking','/handheld')): p['family']='camera'; p['functions'].add('camera_motion')
+    elif sc.startswith(('/hero_','/low_','/ultra_low','/top_','/overhead','/profile','/rear','/front')) or 'angle' in sc or 'perspective' in cap: p['family']='camera'; p['functions'].add('camera_angle')
+    elif sc.startswith(('/wide_','/tele_','/macro_','/shallow_','/deep_','/anamorphic','/fisheye')): p['family']='optical'; p['functions'].add('optical')
+    elif sc.startswith(('/front_view','/rear_view','/left_view','/right_view','/three_quarter','/top_view','/bottom_view','/detail_view')): p['family']='product'; p['functions'].add('product_coverage')
+    elif sc.startswith('/macro_'): p['family']='macro'; p['functions'].add('macro_detail')
+    elif sc.startswith(('/brand_','/product_name','/one_claim','/typography','/text_')): p['family']='graphics'; p['functions'].add('graphics')
+    elif sc.startswith(('/turntable','/spin','/slide_product','/product_','/transform')): p['family']='product_motion'; p['functions'].add('product_motion')
+    elif sc.startswith(('/softbox','/hard_light','/rim_light','/backlight','/gobo','/shadow','/highlight')): p['family']='lighting'; p['functions'].add('lighting')
+    elif sc.startswith(('/dust','/mist','/fog','/smoke','/spark','/particle','/glow','/light_streak')): p['family']='vfx'; p['functions'].add('atmosphere_vfx')
+    elif sc.startswith(('/glass','/mirror','/wet','/fabric','/paper','/wood','/metal','/stone','/water')): p['family']='material_environment'; p['functions'].add('surface_environment')
+    elif sc.startswith(('/match_cut','/whip','/zoom_transition','/speed_ramp','/freeze','/time_')): p['family']='edit'; p['functions'].add('edit_transition')
+    elif sc.startswith(('/whoosh','/swoosh','/hit','/riser','/sting','/ambient','/foley','/voiceover')): p['family']='audio'; p['functions'].add('audio')
+    if any(x in text for x in ['branding','brand recognition','logo']): p['roles'].add('branding')
+    if any(x in text for x in ['attention','hook','punctuation']): p['roles'].add('attention')
+    if any(x in text for x in ['connection','lifestyle','context']): p['roles'].add('connection')
+    if any(x in text for x in ['direction','message','claim']): p['roles'].add('message')
+    if any(x in text for x in ['product','demo','coverage','reveal','feature']): p['roles'].add('product_demo')
+    p['tokens']=set(re.findall(r'[a-z]+',text))
+    if p['family'] in {'material_environment','vfx'}: p['hard'].update(['writing','erasing','hand_interaction'])
+    if p['family']=='audio': p['hard'].update(['writing','erasing','macro_detail','product_coverage','product_motion'])
+    if p['family']=='graphics': p['hard'].update(['writing','erasing','hand_interaction','product_motion'])
+    if p['family']=='material_environment': p['hard'].update(['writing','erasing','hand_interaction'])
+    return p
+def classify_scene(scene): return scene_profile(scene)
+def classify_effect(row): return effect_profile(row)
 def choose_effects(rows,scene,limit=3):
-    groups=scene_terms(scene); scored=[]
+    sp=classify_scene(scene); actions=set(sp['actions']); candidates=[]; rejected=[]
+    explicit_camera='camera_motion' in actions; explicit_macro='macro_detail' in actions; explicit_edit='edit_transition' in actions; explicit_audio='audio' in actions; explicit_hero='hero_brand' in actions; explicit_paper='paper_context' in actions
     for row in rows or []:
-        fields={k:norm(row.get(k)) for k in ['Shortcut','Capability','Primary Use / Intent','Scene Recipe','Visual / Execution Notes','Ad Role','Google-Ads Alignment']}
-        text=' '.join(fields.values())
-        score=0; matched=[]
-        for group in groups:
-            terms={
-              'writing':['write','writing','pen','paper','ink'],
-              'erase':['erase','erasing','rub','remove','ink'],
-              'product':['product','pen','erasable'],
-              'macro':['macro','detail','close','close-up'],
-              'camera':['camera','dolly','push','pull','orbit','crane','handheld','lens'],
-              'hand':['hand','human'],
-              'paper':['paper','sheet','page','desk'],
-              'hero':['hero','brand','lockup','logo'],
-              'sound':['sound','music','voice','sfx','writing','rubbing']
-            }[group]
-            hits=sum(1 for term in terms if term in text)
-            if hits:
-                score += min(hits,2)
-                matched.append(group)
-        if score:
-            # Penalize environment-only effects when the scene is a controlled product/demo action.
-            if not any(g in groups for g in ['hero']) and any(x in text for x in ['beach environment','nature environment','outdoor lifestyle','leaves drifting','nature ambience']): score -= 5
-            if any(g in groups for g in ['writing','erase','product','paper','macro']) and any(x in text for x in ['beach','nature','outdoor','leaves','birds']): score -= 4
-            if score > 0: scored.append((score,len(matched),row,matched))
-    scored.sort(key=lambda item:(-item[0],-item[1],str(item[2].get('Shortcut') or '')))
-    selected=[]; used=set()
-    for score,coverage,row,matched in scored:
-        key=str(row.get('Shortcut') or '')
-        if key not in used:
-            selected.append((row,score,matched)); used.add(key)
+        ep=classify_effect(row); funcs=ep['functions']; family=ep['family']
+        incompatible=ep['hard'] & actions
+        if incompatible:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'HARD_INCOMPATIBILITY','reason':'Effect family incompatible with scene action: '+','.join(sorted(incompatible))}); continue
+        score=0; reasons=[]
+        if ('writing' in actions or 'erasing' in actions):
+            if explicit_macro and 'macro_detail' in funcs: score+=6; reasons.append('explicit macro-detail match')
+            elif explicit_camera and 'camera_motion' in funcs: score+=5; reasons.append('explicit camera-direction match')
+            elif funcs & {'product_coverage','product_motion'}: score+=5; reasons.append('physical product-action coverage match')
+            else:
+                rejected.append({'shortcut':row.get('Shortcut'),'stage':'OBJECT_ACTION_COMPATIBILITY','reason':'No direct pen-writing/erasing production function.'}); continue
+        elif explicit_macro and 'macro_detail' in funcs: score+=6; reasons.append('macro function match')
+        elif explicit_camera and 'camera_motion' in funcs: score+=5; reasons.append('camera function match')
+        elif explicit_edit and 'edit_transition' in funcs: score+=6; reasons.append('edit function match')
+        elif explicit_audio and 'audio' in funcs: score+=6; reasons.append('audio function match')
+        elif explicit_hero and ('branding' in ep['roles'] or funcs & {'graphics','product_coverage','camera_motion','lighting'}): score+=6; reasons.append('hero/brand production-role match')
+        elif explicit_paper and any(t in ep['tokens'] for t in ['paper','sheet','page','desk']): score+=5; reasons.append('paper-context match')
+        elif 'product_demo' in actions:
+            if 'product_demo' in ep['roles'] and funcs & {'product_coverage','product_motion','macro_detail'}: score+=5; reasons.append('product-demo role match')
+            else:
+                rejected.append({'shortcut':row.get('Shortcut'),'stage':'PRODUCTION_ROLE_MATCH','reason':'Generic product relevance is insufficient without a direct production function.'}); continue
+        else:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'QUALITY_THRESHOLD','reason':'No explicit scene/effect functional match.'}); continue
+        if ('writing' in actions or 'erasing' in actions) and family in {'vfx','material_environment','audio','graphics','edit'}:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'HARD_INCOMPATIBILITY','reason':'Decorative/support family is not a direct physical pen-action effect.'}); continue
+        keyword_hits=len(ep['tokens'] & set(re.findall(r'[a-z]+',sp['low']))); score+=min(keyword_hits,1)
+        if score<5:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'QUALITY_THRESHOLD','reason':'Below minimum production compatibility threshold','score':score}); continue
+        candidates.append({'row':row,'score':score,'reasons':reasons,'family':family,'functions':sorted(funcs)})
+    candidates.sort(key=lambda x:(-x['score'],x['family'],str(x['row'].get('Shortcut') or '')))
+    selected=[]; used_families=set(); used=set()
+    for c in candidates:
+        key=str(c['row'].get('Shortcut') or '')
+        if key in used: continue
+        repetition_penalty=2 if c['family'] in used_families else 0; c['repetition_penalty']=repetition_penalty; c['effective_score']=c['score']-repetition_penalty
+        if c['effective_score']>=5: selected.append(c); used.add(key); used_families.add(c['family'])
         if len(selected)>=limit: break
-    return selected
-
+    selected.sort(key=lambda x:(-x['effective_score'],-x['score'],str(x['row'].get('Shortcut') or '')))
+    diagnostics={'scene_actions':sorted(actions),'candidate_count':len(candidates),'rejected_count':len(rejected),'selected_count':len(selected),'repetition_penalty_applied':any(c.get('repetition_penalty',0)>0 for c in selected),'rejections':rejected[:40]}
+    return selected,diagnostics
 def execute(rows,brief):
     ai=brief.get('ai_direction') or {}; ai_scenes=ai.get('scenes') if isinstance(ai.get('scenes'),list) and len(ai.get('scenes'))==6 else None
     intent=brief.get('intent_model') or {}; facts=intent.get('user_stated_facts') or {}; research=brief.get('research_context') or {}; verified=research.get('verified_facts') or []
-    grounding=json.dumps({'facts':facts,'product':intent.get('product'),'category':intent.get('category'),'verified':verified},ensure_ascii=False); fallback_lines=fallback(brief); working=[]
-    for index in range(6):
-        source=ai_scenes[index] if ai_scenes and isinstance(ai_scenes[index],dict) else {}
-        working.append({'story_purpose':str(source.get('story_purpose') or source.get('purpose') or 'Develop the advertising story.'),'visual_direction':sanitize_text(source.get('visual_direction') or '',grounding),'vo':sanitize_text(source.get('vo') or fallback_lines[index],grounding),'sound_direction':str(source.get('sound_direction') or ''),'on_screen':sanitize_text(source.get('on_screen') or '',grounding)})
-    guard=claim_guard(brief,working); output_scenes=[]
-    for index in range(6):
-        scene=working[index]; chosen=choose_effects(rows,scene,3)
-        effect_data=[]
-        for r,score,matched in chosen:
-            effect_data.append({'shortcut':r.get('Shortcut'),'capability':r.get('Capability'),'intent':r.get('Primary Use / Intent'),'application':r.get('Scene Recipe'),'sheet':r.get('sheet',''),'semantic_score':score,'matched_scene_dimensions':matched})
+    grounding=json.dumps({'facts':facts,'product':intent.get('product'),'category':intent.get('category'),'verified':verified},ensure_ascii=False); fb=fallback(brief); working=[]
+    for i in range(6):
+        src=ai_scenes[i] if ai_scenes and isinstance(ai_scenes[i],dict) else {}
+        working.append({'story_purpose':str(src.get('story_purpose') or src.get('purpose') or 'Develop the advertising story.'),'visual_direction':sanitize_text(src.get('visual_direction') or '',grounding),'vo':sanitize_text(src.get('vo') or fb[i],grounding),'sound_direction':str(src.get('sound_direction') or ''),'on_screen':sanitize_text(src.get('on_screen') or '',grounding)})
+    guard=claim_guard(brief,working); out=[]
+    for i,scene in enumerate(working):
+        chosen,diag=choose_effects(rows,scene,3); effects=[]
+        for c in chosen:
+            r=c['row']; effects.append({'shortcut':r.get('Shortcut'),'capability':r.get('Capability'),'intent':r.get('Primary Use / Intent'),'application':r.get('Scene Recipe'),'sheet':r.get('sheet',''),'semantic_score':c['score'],'effective_score':c['effective_score'],'effect_family':c['family'],'effect_functions':c['functions'],'selection_reasons':c['reasons']})
         missing=[]
-        if len(effect_data)<3: missing.append('No additional sufficiently relevant shortcut found in current effect library.')
-        relevance='HIGH' if effect_data and effect_data[0]['semantic_score']>=4 else ('MEDIUM' if effect_data else 'LOW')
-        output_scenes.append({'scene':index+1,'timecode':str(index*2.5)+'-'+str((index+1)*2.5)+'s','story_purpose':scene['story_purpose'],'visual_direction':scene['visual_direction'],'effects':effect_data,'missing_effects':missing,'vo':scene['vo'],'sound_direction':scene['sound_direction'],'sound':[],'on_screen':scene['on_screen'],'effect_status':'SEMANTICALLY VERIFIED SCENE MATCH' if relevance=='HIGH' else ('PARTIAL SEMANTIC MATCH' if effect_data else 'NO VERIFIED SCENE MATCH'),'effect_relevance':relevance,'claim_guard_status':'BLOCKED' if guard['status']=='BLOCKED' else 'PASS'})
+        if len(effects)<3: missing.append('No additional production-relevant library effect passed the v0.8.6 quality gate; no padding applied.')
+        relevance='HIGH' if effects and effects[0]['effective_score']>=8 else ('MEDIUM' if effects else 'LOW')
+        gate='PASS' if effects or not diag['candidate_count'] else 'PASS_WITH_LIMITED_EFFECTS'
+        out.append({'scene':i+1,'timecode':str(i*2.5)+'-'+str((i+1)*2.5)+'s','story_purpose':scene['story_purpose'],'visual_direction':scene['visual_direction'],'effects':effects,'missing_effects':missing,'effect_diagnostics':diag,'effect_quality_gate':{'status':gate,'selected_count':len(effects),'allowed_range':'0-3','padding_applied':False},'vo':scene['vo'],'sound_direction':scene['sound_direction'],'sound':[],'on_screen':scene['on_screen'],'effect_status':'QUALITY-GATED PRODUCTION MATCH' if effects else 'NO EFFECT PASSED QUALITY GATE','effect_relevance':relevance,'claim_guard_status':'BLOCKED' if guard['status']=='BLOCKED' else 'PASS'})
     objective=brief.get('objective') or 'Brand Awareness'; strategy={'objective':objective,'tone':brief.get('tone') or 'Cinematic','audience':brief.get('audience') or '','key_message':ai.get('key_message') or brief.get('message') or objective,'creative_route':ai.get('creative_route') or 'Audience-led brand story','narrative_arc':ai.get('narrative_arc') or 'Hook → need → product meaning → experience → brand recall → CTA','duration_seconds':15,'scene_count':6,'language':brief.get('language') or 'Hindi','cta':brief.get('cta'),'brand':brief.get('brand') or '','product':brief.get('product') or '','research_informed':bool(research.get('verified_facts')),'research_retrieved':bool(brief.get('research_context')),'evidence_available':bool(research.get('verified_facts')),'ai_composed':bool(ai_scenes)}
-    return {'engine':'KALP AdManthan Python Engine','version':VERSION,'execution':'Pyodide/WebAssembly','brand':brief.get('brand') or 'Brand','product':brief.get('product') or '','objective':objective,'duration_seconds':15,'scene_count':6,'library_count':len(rows or []),'strategy':strategy,'continuous_vo':' '.join(scene['vo'] for scene in output_scenes),'script_mode':'AI-composed six-beat continuous VO with deterministic evidence-safe normalization','claim_guard':guard,'release_status':'HOLD_FOR_CLAIM_REVIEW' if guard['status']=='BLOCKED' else 'RELEASE_ELIGIBLE','scenes':output_scenes,'production_package':{'format':'15-second advertisement','aspect_ratio':'16:9','scene_count':6,'deliverables':['AI intent model','research context','claim and evidence guard','final objective','strategy','AI six-beat continuous VO','storyboard','verified effect selections','sound design','production manifest'],'cta':brief.get('cta'),'engine_status':'EXECUTED','brief_driven':True,'research_informed':bool(research.get('verified_facts')),'research_retrieved':bool(brief.get('research_context')),'evidence_available':bool(research.get('verified_facts')),'ai_composed':bool(ai_scenes),'raw_intent_excluded_from_creative':True}}
-
+    return {'engine':'KALP AdManthan Python Engine','version':VERSION,'execution':'Pyodide/WebAssembly','brand':brief.get('brand') or 'Brand','product':brief.get('product') or '','objective':objective,'duration_seconds':15,'scene_count':6,'library_count':len(rows or []),'strategy':strategy,'continuous_vo':' '.join(s['vo'] for s in out),'script_mode':'AI-composed six-beat continuous VO with deterministic evidence-safe normalization','claim_guard':guard,'release_status':'HOLD_FOR_CLAIM_REVIEW' if guard['status']=='BLOCKED' else 'RELEASE_ELIGIBLE','scenes':out,'production_package':{'format':'15-second advertisement','aspect_ratio':'16:9','scene_count':6,'deliverables':['AI intent model','research context','claim and evidence guard','final objective','strategy','AI six-beat continuous VO','storyboard','quality-gated effect selections','effect diagnostics','sound design','production manifest'],'cta':brief.get('cta'),'engine_status':'EXECUTED','brief_driven':True,'research_informed':bool(research.get('verified_facts')),'research_retrieved':bool(brief.get('research_context')),'evidence_available':bool(research.get('verified_facts')),'ai_composed':bool(ai_scenes),'raw_intent_excluded_from_creative':True}}
 def generate(rows,brand,product,objective='Brand Awareness'): return execute(rows,{'brand':brand,'product':product,'objective':objective})
