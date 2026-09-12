@@ -50,6 +50,29 @@ function ensurePersonalFields(): void {
   form.insertBefore(grid, form.firstElementChild);
 }
 
+function ensureGeminiStyles(): void {
+  if (document.getElementById("kalp-gemini-styles")) return;
+  const style = document.createElement("style");
+  style.id = "kalp-gemini-styles";
+  style.textContent = `
+    .kalp-gemini-interpretation{margin-top:16px;padding:18px;border:1px solid #c4b5fd;border-radius:16px;background:linear-gradient(180deg,#faf5ff 0%,#fff 100%);box-shadow:0 5px 18px #0f172a0b}
+    .kalp-gemini-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+    .kalp-gemini-header h3{margin:2px 0 0}
+    .kalp-gemini-eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7c3aed}
+    .kalp-gemini-badge{font-size:.72rem;font-weight:700;padding:5px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;white-space:nowrap}
+    .kalp-gemini-summary{font-size:1rem;margin:10px 0 16px}
+    .kalp-gemini-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .kalp-gemini-section{padding:12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+    .kalp-gemini-section h4{margin:0 0 7px;font-size:.94rem;color:#312e81}
+    .kalp-gemini-section ul{margin:0;padding-left:19px}
+    .kalp-gemini-section li{margin:4px 0}
+    .kalp-gemini-interpretation>small{display:block;margin-top:14px;color:#64748b}
+    .kalp-gemini-loading{background:#f8fafc;border-color:#cbd5e1}
+    @media(max-width:700px){.kalp-gemini-sections{grid-template-columns:1fr}.kalp-gemini-header{align-items:flex-start}}
+  `;
+  document.head.appendChild(style);
+}
+
 async function getGatewayToken(): Promise<string> {
   if (!SUPABASE_ANON_KEY) throw new Error("KALP Gemini bridge is not configured in this build.");
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
@@ -183,6 +206,7 @@ function processKundliResult(answer: HTMLElement): void {
 }
 
 ensurePersonalFields();
+ensureGeminiStyles();
 const answer = document.getElementById("answer");
 if (answer) {
   const observer = new MutationObserver(() => processKundliResult(answer));
