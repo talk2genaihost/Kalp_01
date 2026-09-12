@@ -1,7 +1,7 @@
 import json
 import re
 
-VERSION='0.8.7-effect-calibration'
+VERSION='0.8.8-effect-necessity-shot-fit'
 CLAIM_TERMS=['thermal','tip','retractable','refillable','waterproof','washable','smudge-proof','quick-dry','fast-drying','non-toxic','durable','leak-proof','shavings','residue','cartridge','eraser mechanism','lasts','long-lasting','writes smoothly','smooth writing','dries instantly','instant drying','erases completely','erases cleanly','without tearing','without shavings','zero residue','no residue','trace-free','without a trace','best','number one','#1','better than','faster than','more durable','guaranteed']
 SAFE_REPLACEMENTS=[('zero residue','the erased mark'),('no residue','the erased mark'),('without a trace','the erased mark'),('trace-free','the erased mark'),('erases completely','erases'),('erases cleanly','erases'),('cleanly','away'),('instantly','then'),('instant','simple'),('seamless','continuous'),('premium',''),('perfect',''),('smooth','')]
 OBJECT_CONTEXT_TERMS=['pen tip','tip of the pen','pen-tip','tip pressing','tip pressing on paper','pen tip pressing','tip writes','tip of an erasable pen']
@@ -37,7 +37,6 @@ def scene_profile(scene):
     if anyof(['erase','erasing','rub','remove','मिट','रगड़','erase mark']): actions+=['erasing','product_demo']
     if anyof(['reveal','unveil','open','pack','box','unbox','खुल']): actions+=['reveal']
     if anyof(['rotate','spin','360','turntable']): actions+=['product_rotation']
-    # Keep CLOSE-UP, MACRO and PRODUCT DETAIL distinct. A close-up is not automatically macro.
     if anyof(['macro','extreme close-up','extreme close up','macro detail','मैक्रो']): actions+=['macro_detail']
     elif anyof(['close-up','close up','detail shot','product detail','नज़दीक','डिटेल']): actions+=['close_up']
     if anyof(['hero','logo','brand lockup','final frame','cta']): actions+=['hero_brand']
@@ -52,7 +51,6 @@ def effect_profile(row):
     text=' '.join(norm(row.get(k)) for k in ['Shortcut','Capability','Primary Use / Intent','Scene Recipe','Visual / Execution Notes','Ad Role','Google-Ads Alignment'])
     sc=norm(row.get('Shortcut')); cap=norm(row.get('Capability'))
     p={'family':'unknown','functions':set(),'roles':set(),'tokens':set(),'hard':set()}
-    # Macro must be classified before generic optical /push rules.
     if sc.startswith('/macro_'): p['family']='macro'; p['functions']|={'macro_detail','optical'}
     elif sc.startswith(('/dolly','/truck','/pedestal','/crane','/orbit','/arc','/pan','/tilt','/push','/pull','/tracking','/handheld')): p['family']='camera'; p['functions'].add('camera_motion')
     elif sc.startswith(('/hero_','/low_','/ultra_low','/top_','/overhead','/profile','/rear','/front')) or 'angle' in sc or 'perspective' in cap: p['family']='camera'; p['functions'].add('camera_angle')
@@ -83,51 +81,67 @@ def choose_effects(rows,scene,limit=3):
     explicit_camera='camera_motion' in actions; explicit_macro='macro_detail' in actions; explicit_close='close_up' in actions; explicit_edit='edit_transition' in actions; explicit_audio='audio' in actions; explicit_hero='hero_brand' in actions; explicit_paper='paper_context' in actions
     physical=actions & {'writing','erasing','hand_interaction'}
     low=sp['low']
+    explicit_angle=any(t in low for t in ['left view','right view','rear view','front view','top view','bottom view','three-quarter','three quarter','underside','silhouette','multi-angle','multiple angles','coverage angle'])
+    explicit_product_motion=any(t in low for t in ['product rotation','product rotates','product spins','spin the product','turntable','360 product','transform the product','product transform'])
+    explicit_sfx=any(t in low for t in ['sfx','sound effect','foley','erase sound','pen sound','rub sound','scratch sound','whoosh'])
     for row in rows or []:
-        ep=classify_effect(row); funcs=ep['functions']; family=ep['family']; compatibility='INCOMPATIBLE'; score=0; reasons=[]
+        ep=classify_effect(row); funcs=ep['functions']; family=ep['family']; compatibility='INCOMPATIBLE'; score=0; necessity=0; reasons=[]; fit='NONE'
+        # DIRECT MATCH is strict: the library function must satisfy an explicit production requirement.
         if explicit_hero:
-            if 'branding' in ep['roles'] and funcs & {'graphics','product_coverage','camera_motion','lighting'}: compatibility='DIRECT MATCH'; score=7; reasons.append('hero/brand production-role match')
-            elif funcs & {'product_coverage','camera_motion','lighting'}: compatibility='SUPPORTING MATCH'; score=6; reasons.append('hero product presentation match')
+            if 'branding' in ep['roles'] and funcs & {'graphics','product_coverage','camera_motion','lighting'}: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='hero_brand'
         elif explicit_macro:
-            if 'macro_detail' in funcs: compatibility='DIRECT MATCH'; score=7; reasons.append('explicit macro-detail match')
-            elif 'camera_motion' in funcs or 'optical' in funcs: compatibility='SUPPORTING MATCH'; score=5; reasons.append('camera technique supports macro/detail action')
+            if 'macro_detail' in funcs: compatibility='DIRECT MATCH'; score=9; necessity=5; fit='macro_shot'; reasons.append('explicit macro-detail requirement')
+            elif funcs & {'optical','camera_motion'}: compatibility='SUPPORTING MATCH'; score=4; necessity=2; fit='macro_support'; reasons.append('camera/optical technique can support macro framing')
         elif explicit_close:
-            if 'macro_detail' in funcs or 'optical' in funcs: compatibility='SUPPORTING MATCH'; score=5; reasons.append('macro/optical technique supports close-up')
-            elif 'product_coverage' in funcs: compatibility='DIRECT MATCH'; score=6; reasons.append('product-detail coverage match')
-            elif 'camera_motion' in funcs: compatibility='SUPPORTING MATCH'; score=5; reasons.append('camera movement supports close-up')
+            if 'macro_detail' in funcs: compatibility='SUPPORTING MATCH'; score=6; necessity=3; fit='close_up_support'; reasons.append('macro technique materially supports close-up framing')
+            elif 'optical' in funcs: compatibility='SUPPORTING MATCH'; score=5; necessity=2; fit='close_up_support'; reasons.append('optical technique supports close-up framing')
+            elif explicit_camera and 'camera_motion' in funcs: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='camera_motion'
         elif physical:
-            if explicit_camera and 'camera_motion' in funcs: compatibility='DIRECT MATCH'; score=7; reasons.append('explicit camera-direction match')
-            elif 'product_coverage' in funcs and any(t in low for t in ['product close','product view','product coverage','product presentation','product detail']): compatibility='DIRECT MATCH'; score=6; reasons.append('explicit product-coverage match')
-            elif 'product_motion' in funcs and any(t in low for t in ['rotate','spin','turntable','transform','reveal']): compatibility='DIRECT MATCH'; score=6; reasons.append('explicit product-motion match')
-            elif family=='audio' and any(t in low for t in ['sfx','sound effect','foley','rub','scratch','erase sound','pen sound','whoosh']): compatibility='SUPPORTING MATCH'; score=4; reasons.append('explicit action sound cue')
-            elif family in {'lighting','optical','camera'}: compatibility='SUPPORTING MATCH'; score=4; reasons.append('production technique supports physical action')
-        elif explicit_edit and 'edit_transition' in funcs: compatibility='DIRECT MATCH'; score=7; reasons.append('edit function match')
-        elif explicit_audio and 'audio' in funcs: compatibility='DIRECT MATCH'; score=6; reasons.append('audio function match')
-        elif explicit_paper and any(t in ep['tokens'] for t in ['paper','sheet','page','desk']): compatibility='SUPPORTING MATCH'; score=5; reasons.append('paper-context match')
-        elif 'product_demo' in actions and funcs & {'product_coverage','product_motion','macro_detail','optical','camera_motion'}: compatibility='SUPPORTING MATCH'; score=5; reasons.append('product presentation technique')
-        # Generic VO/audio presence is not sufficient production necessity.
-        if family=='audio' and not any(t in low for t in ['sfx','sound effect','foley','rub','scratch','erase sound','pen sound','whoosh','music cue']):
-            compatibility='INCOMPATIBLE'; score=0; reasons=[]
-        if compatibility=='INCOMPATIBLE':
-            rejected.append({'shortcut':row.get('Shortcut'),'stage':'COMPATIBILITY','compatibility':compatibility,'reason':'No compatible production role for the stated scene.'}); continue
+            if explicit_camera and 'camera_motion' in funcs: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='camera_motion'; reasons.append('explicit camera-direction requirement')
+            elif explicit_angle and 'product_coverage' in funcs: compatibility='DIRECT MATCH'; score=9; necessity=5; fit='product_coverage'; reasons.append('explicit product-angle/coverage requirement')
+            elif explicit_product_motion and 'product_motion' in funcs: compatibility='DIRECT MATCH'; score=9; necessity=5; fit='product_motion'; reasons.append('explicit product-motion requirement')
+            elif family=='audio' and explicit_sfx: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='action_sfx'; reasons.append('explicit production sound requirement')
+            elif family in {'lighting','optical','camera','macro'}: compatibility='SUPPORTING MATCH'; score=4; necessity=1; fit='physical_action_support'; reasons.append('possible supporting production technique only')
+        elif explicit_edit and 'edit_transition' in funcs: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='edit_transition'
+        elif explicit_audio and 'audio' in funcs and explicit_sfx: compatibility='DIRECT MATCH'; score=8; necessity=4; fit='audio'
+        elif explicit_paper and any(t in ep['tokens'] for t in ['paper','sheet','page','desk']): compatibility='SUPPORTING MATCH'; score=3; necessity=1; fit='paper_context'; reasons.append('paper context only')
+        elif 'product_demo' in actions and funcs & {'macro_detail','optical','camera_motion'}:
+            compatibility='SUPPORTING MATCH'; score=3; necessity=1; fit='product_presentation_support'; reasons.append('generic product-presentation support only')
+        # VO/music presence alone never establishes effect necessity.
+        if family=='audio' and not explicit_sfx:
+            compatibility='INCOMPATIBLE'; score=0; necessity=0; reasons=[]
+        # Product-motion effects require an explicit production instruction; a hand turning a product is not enough.
+        if family=='product_motion' and not explicit_product_motion:
+            compatibility='INCOMPATIBLE'; score=0; necessity=0; reasons=[]
+        # Product coverage requires an explicit coverage/angle requirement; close-up is not product-angle coverage.
+        if family=='product' and not explicit_angle:
+            compatibility='INCOMPATIBLE'; score=0; necessity=0; reasons=[]
+        # Decorative families are never selected merely because the scene contains a physical action.
         if physical and family in {'vfx','material_environment','graphics'}:
-            rejected.append({'shortcut':row.get('Shortcut'),'stage':'COMPATIBILITY','compatibility':'INCOMPATIBLE','reason':'Decorative/support family is not necessary for the physical pen action.'}); continue
+            compatibility='INCOMPATIBLE'; score=0; necessity=0; reasons=[]
+        if compatibility=='INCOMPATIBLE':
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'SHOT_FIT','compatibility':'INCOMPATIBLE','reason':'No explicit production requirement or sufficiently necessary shot fit.'}); continue
         keyword_hits=len(ep['tokens'] & set(re.findall(r'[a-z]+',low))); score+=min(keyword_hits,1)
-        if score<4: rejected.append({'shortcut':row.get('Shortcut'),'stage':'QUALITY_THRESHOLD','compatibility':compatibility,'reason':'Below minimum production compatibility threshold','score':score}); continue
-        necessity=2 if compatibility=='DIRECT MATCH' else 1
-        # Prefer techniques that materially improve the shot, not effects that merely can be present.
-        if family in {'lighting','optical','camera','macro','product','product_motion','edit'}: necessity+=1
-        candidates.append({'row':row,'score':score+necessity,'base_score':score,'necessity':necessity,'reasons':reasons,'family':family,'functions':sorted(funcs),'compatibility':compatibility})
-    candidates.sort(key=lambda x:(-x['score'], -x['necessity'], x['family'], str(x['row'].get('Shortcut') or '')))
+        # Supporting compatibility alone is not sufficient. It must clear a higher necessity bar.
+        necessity_score=necessity*2 + (1 if keyword_hits else 0)
+        if compatibility=='SUPPORTING MATCH' and necessity_score<6:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'NECESSITY','compatibility':compatibility,'reason':'Supporting match lacks sufficient production necessity; supporting compatibility alone cannot trigger selection.','necessity_score':necessity_score}); continue
+        if compatibility=='DIRECT MATCH' and necessity_score<7:
+            rejected.append({'shortcut':row.get('Shortcut'),'stage':'NECESSITY','compatibility':compatibility,'reason':'Direct match did not clear production necessity threshold.','necessity_score':necessity_score}); continue
+        candidates.append({'row':row,'score':score,'necessity':necessity,'necessity_score':necessity_score,'reasons':reasons,'family':family,'functions':sorted(funcs),'compatibility':compatibility,'shot_fit':fit})
+    candidates.sort(key=lambda x:(-x['necessity_score'],-x['score'],x['family'],str(x['row'].get('Shortcut') or '')))
     selected=[]; used_families=set(); used=set()
     for c in candidates:
         key=str(c['row'].get('Shortcut') or '')
         if key in used: continue
-        penalty=1 if c['family'] in used_families else 0; c['repetition_penalty']=penalty; c['effective_score']=c['score']-penalty
-        if c['effective_score']>=5: selected.append(c); used.add(key); used_families.add(c['family'])
+        penalty=1 if c['family'] in used_families else 0
+        c['repetition_penalty']=penalty
+        c['effective_score']=c['necessity_score']-penalty
+        if c['effective_score']>=7:
+            selected.append(c); used.add(key); used_families.add(c['family'])
         if len(selected)>=limit: break
-    selected.sort(key=lambda x:(-x['effective_score'],-x['score'],str(x['row'].get('Shortcut') or '')))
-    diagnostics={'scene_actions':sorted(actions),'candidate_count':len(candidates),'rejected_count':len(rejected),'selected_count':len(selected),'repetition_penalty_applied':any(c.get('repetition_penalty',0)>0 for c in selected),'compatibility_counts':{'DIRECT MATCH':sum(c['compatibility']=='DIRECT MATCH' for c in candidates),'SUPPORTING MATCH':sum(c['compatibility']=='SUPPORTING MATCH' for c in candidates),'INCOMPATIBLE':len(rejected)},'rejections':rejected[:40]}
+    selected.sort(key=lambda x:(-x['effective_score'],-x['necessity_score'],str(x['row'].get('Shortcut') or '')))
+    diagnostics={'scene_actions':sorted(actions),'candidate_count':len(candidates),'rejected_count':len(rejected),'selected_count':len(selected),'repetition_penalty_applied':any(c.get('repetition_penalty',0)>0 for c in selected),'compatibility_counts':{'DIRECT MATCH':sum(c['compatibility']=='DIRECT MATCH' for c in candidates),'SUPPORTING MATCH':sum(c['compatibility']=='SUPPORTING MATCH' for c in candidates),'INCOMPATIBLE':len(rejected)},'shot_fit_gate':'DIRECT MATCH requires explicit production need; SUPPORTING MATCH requires necessity threshold; no padding.','rejections':rejected[:40]}
     return selected,diagnostics
 
 def execute(rows,brief):
@@ -141,12 +155,12 @@ def execute(rows,brief):
     for i,scene in enumerate(working):
         chosen,diag=choose_effects(rows,scene,3); effects=[]
         for c in chosen:
-            r=c['row']; effects.append({'shortcut':r.get('Shortcut'),'capability':r.get('Capability'),'intent':r.get('Primary Use / Intent'),'application':r.get('Scene Recipe'),'sheet':r.get('sheet',''),'semantic_score':c['score'],'effective_score':c['effective_score'],'effect_family':c['family'],'effect_functions':c['functions'],'compatibility':c['compatibility'],'selection_reasons':c['reasons']})
+            r=c['row']; effects.append({'shortcut':r.get('Shortcut'),'capability':r.get('Capability'),'intent':r.get('Primary Use / Intent'),'application':r.get('Scene Recipe'),'sheet':r.get('sheet',''),'semantic_score':c['score'],'effective_score':c['effective_score'],'effect_family':c['family'],'effect_functions':c['functions'],'compatibility':c['compatibility'],'selection_reasons':c['reasons'],'shot_fit':c['shot_fit'],'necessity_score':c['necessity_score']})
         missing=[]
-        if len(effects)<3: missing.append('No additional production-relevant library effect passed the v0.8.7 calibration gate; no padding applied.')
-        relevance='HIGH' if effects and effects[0]['effective_score']>=8 else ('MEDIUM' if effects else 'LOW')
+        if len(effects)<3: missing.append('No additional production-relevant library effect passed the v0.8.8 necessity and shot-fit gate; no padding applied.')
+        relevance='HIGH' if effects and effects[0]['effective_score']>=9 else ('MEDIUM' if effects else 'LOW')
         gate='PASS' if effects else 'PASS_WITH_LIMITED_EFFECTS'
-        out.append({'scene':i+1,'timecode':str(i*2.5)+'-'+str((i+1)*2.5)+'s','story_purpose':scene['story_purpose'],'visual_direction':scene['visual_direction'],'effects':effects,'missing_effects':missing,'effect_diagnostics':diag,'effect_quality_gate':{'status':gate,'selected_count':len(effects),'allowed_range':'0-3','padding_applied':False},'vo':scene['vo'],'sound_direction':scene['sound_direction'],'sound':[],'on_screen':scene['on_screen'],'effect_status':'CALIBRATED PRODUCTION MATCH' if effects else 'NO EFFECT PASSED QUALITY GATE','effect_relevance':relevance,'claim_guard_status':'BLOCKED' if guard['status']=='BLOCKED' else 'PASS'})
+        out.append({'scene':i+1,'timecode':str(i*2.5)+'-'+str((i+1)*2.5)+'s','story_purpose':scene['story_purpose'],'visual_direction':scene['visual_direction'],'effects':effects,'missing_effects':missing,'effect_diagnostics':diag,'effect_quality_gate':{'status':gate,'selected_count':len(effects),'allowed_range':'0-3','padding_applied':False},'vo':scene['vo'],'sound_direction':scene['sound_direction'],'sound':[],'on_screen':scene['on_screen'],'effect_status':'NECESSITY AND SHOT-FIT PASSED' if effects else 'NO EFFECT PASSED QUALITY GATE','effect_relevance':relevance,'claim_guard_status':'BLOCKED' if guard['status']=='BLOCKED' else 'PASS'})
     objective=brief.get('objective') or 'Brand Awareness'; strategy={'objective':objective,'tone':brief.get('tone') or 'Cinematic','audience':brief.get('audience') or '','key_message':ai.get('key_message') or brief.get('message') or objective,'creative_route':ai.get('creative_route') or 'Audience-led brand story','narrative_arc':ai.get('narrative_arc') or 'Hook → need → product meaning → experience → brand recall → CTA','duration_seconds':15,'scene_count':6,'language':brief.get('language') or 'Hindi','cta':ai.get('cta') or brief.get('cta'),'brand':brief.get('brand') or '','product':brief.get('product') or '','research_informed':bool(research.get('verified_facts')),'research_retrieved':bool(brief.get('research_context')),'evidence_available':bool(research.get('verified_facts')),'ai_composed':bool(ai_scenes)}
     return {'engine':'KALP AdManthan Python Engine','version':VERSION,'execution':'Pyodide/WebAssembly','brand':brief.get('brand') or 'Brand','product':brief.get('product') or '','objective':objective,'duration_seconds':15,'scene_count':6,'library_count':len(rows or []),'strategy':strategy,'continuous_vo':' '.join(s['vo'] for s in out),'script_mode':'AI-composed six-beat continuous VO with deterministic evidence-safe normalization','claim_guard':guard,'release_status':'HOLD_FOR_CLAIM_REVIEW' if guard['status']=='BLOCKED' else 'RELEASE_ELIGIBLE','scenes':out,'production_package':{'format':'15-second advertisement','aspect_ratio':'16:9','scene_count':6,'deliverables':['AI intent model','research context','claim and evidence guard','final objective','strategy','AI six-beat continuous VO','storyboard','quality-gated effect selections','effect diagnostics','sound design','production manifest'],'cta':ai.get('cta') or brief.get('cta'),'engine_status':'EXECUTED','brief_driven':True,'research_informed':bool(research.get('verified_facts')),'research_retrieved':bool(brief.get('research_context')),'evidence_available':bool(research.get('verified_facts')),'ai_composed':bool(ai_scenes),'raw_intent_excluded_from_creative':True}}
 def generate(rows,brand,product,objective='Brand Awareness'): return execute(rows,{'brand':brand,'product':product,'objective':objective})
