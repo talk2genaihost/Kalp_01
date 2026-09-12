@@ -51,35 +51,8 @@ jobs:
           cp -R docs/admanthan-dashboard/. /tmp/published-site/admanthan/
           cp docs/admanthan-dashboard/studio.html /tmp/published-site/admanthan/index.html
 
-          # v0.8.9 runtime integration: preserve the v0.8.8 engine unchanged,
-          # then append the semantic-fit gate and wrap choose_effects().
-          cat docs/admanthan-dashboard/semantic_fit_gate.py >> /tmp/published-site/admanthan/admanthan_browser.py
-          cat >> /tmp/published-site/admanthan/admanthan_browser.py <<'PY'
-
-# KALP AdManthan v0.8.9 runtime integration.
-# The original v0.8.8 choose_effects remains the production selector. This
-# wrapper only removes semantically incompatible library rows before delegating
-# to it, preserving v0.8.8 shot-fit, necessity, no-padding and diversity gates.
-_KALP_V088_CHOOSE_EFFECTS = choose_effects
-
-def choose_effects(rows, scene, limit=3):
-    semantic_rows = []
-    diagnostics = []
-    for row in rows or []:
-        fit = evaluate_effect(scene, row)
-        diagnostics.append(fit)
-        if fit.get('compatibility') != 'INCOMPATIBLE':
-            semantic_rows.append(row)
-    result = _KALP_V088_CHOOSE_EFFECTS(semantic_rows, scene, limit)
-    if isinstance(result, dict):
-        result['semantic_fit_version'] = VERSION
-        result['semantic_fit_diagnostics'] = diagnostics
-    return result
-PY
-
-          # Keep the browser cache-buster/version label aligned with the live engine.
+          python scripts/build_admanthan_v089.py
           sed -i 's/admanthan_browser.py?v=0.8.5/admanthan_browser.py?v=0.8.9/' /tmp/published-site/admanthan/index.html
-
           python -m py_compile /tmp/published-site/admanthan/admanthan_browser.py
 
           cat > /tmp/published-site/index.html <<'EOF'
