@@ -19,6 +19,29 @@ function asList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
+function ensurePersonalFields(): void {
+  const form = document.getElementById("birthForm");
+  if (!form || form.querySelector("#birthName")) return;
+
+  const grid = document.createElement("div");
+  grid.className = "formgrid";
+  grid.innerHTML = `
+    <label>
+      <span>नाम / Name</span>
+      <input id="birthName" type="text" required autocomplete="name" placeholder="जैसे Gaurav">
+    </label>
+    <label>
+      <span>लिंग / Sex</span>
+      <select id="birthSex" required>
+        <option value="">चुनें / Select</option>
+        <option value="male">पुरुष / Male</option>
+        <option value="female">महिला / Female</option>
+        <option value="other">अन्य / Other</option>
+      </select>
+    </label>`;
+  form.insertBefore(grid, form.firstElementChild);
+}
+
 async function getGatewayToken(): Promise<string> {
   if (!SUPABASE_ANON_KEY) throw new Error("KALP Gemini bridge is not configured in this build.");
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
@@ -37,12 +60,15 @@ async function interpret(payload: unknown): Promise<Interpretation> {
   const root = payload as Record<string, unknown>;
   const requested = root.requested ?? {};
   const data = root.data ?? {};
+  const name = (document.getElementById("birthName") as HTMLInputElement | null)?.value.trim() ?? "";
+  const sex = (document.getElementById("birthSex") as HTMLSelectElement | null)?.value ?? "";
   const prompt = [
     "You are the KALP Astro Rashi interpretation layer.",
     "Interpret only the supplied Vedic chart facts; never invent missing placements.",
     "Use cautious, non-deterministic language. This is an interpretive reading, not medical, financial, legal, or guaranteed predictive advice.",
     "Return JSON only with keys: summary (string), strengths (string[]), cautions (string[]), focus (string[]).",
     "Write the response in conversational Hindi.",
+    `Person details: ${JSON.stringify({ name, sex })}`,
     `Requested birth context: ${JSON.stringify(requested)}`,
     `Normalized provider data: ${JSON.stringify(data)}`,
   ].join("\n\n");
@@ -114,6 +140,7 @@ function processKundliResult(answer: HTMLElement): void {
     });
 }
 
+ensurePersonalFields();
 const answer = document.getElementById("answer");
 if (answer) {
   const observer = new MutationObserver(() => processKundliResult(answer));
