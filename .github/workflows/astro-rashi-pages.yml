@@ -103,8 +103,35 @@ jobs:
           git checkout --orphan gh-pages
           git rm -rf . >/dev/null 2>&1 || true
           cp -R /tmp/published-site/. .
+          find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find . -type f -name '*.pyc' -delete
+          test ! -d admanthan/__pycache__
+          test -z "$(find . -type f -name '*.pyc' -print -quit)"
+          test "$(grep -c 'VERSION = \"0.8.9-semantic-production-fit\"' admanthan/admanthan_browser.py)" -eq 1
+          grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' admanthan/admanthan_browser.py
+          python -m py_compile admanthan/admanthan_browser.py
+          rm -rf admanthan/__pycache__
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy KALP Applications to GitHub Pages"
           git push --force origin gh-pages
+          git fetch origin gh-pages
+          PUBLISHED_SHA="$(git rev-parse origin/gh-pages)"
+          test "$(git rev-parse HEAD)" = "$PUBLISHED_SHA"
+          test "$(grep -c 'VERSION = \"0.8.9-semantic-production-fit\"' admanthan/admanthan_browser.py)" -eq 1
+          grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' admanthan/admanthan_browser.py
+          test -z "$(find . -type f -name '*.pyc' -print -quit)"
+          test -z "$(find . -type d -name '__pycache__' -print -quit)"
+          python - <<'PY'
+          import importlib.util
+          p = "admanthan/admanthan_browser.py"
+          spec = importlib.util.spec_from_file_location("published_gh_pages_admanthan_v089", p)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          assert getattr(m, "VERSION", None) == "0.8.9-semantic-production-fit"
+          assert getattr(m, "KALP_V089_SEMANTIC_INTEGRATED", False) is True
+          assert hasattr(m, "_KALP_V088_CHOOSE_EFFECTS")
+          print("gh-pages AdManthan v0.8.9 read-back verification: PASS")
+          PY
+          echo "Published gh-pages commit: $PUBLISHED_SHA"
