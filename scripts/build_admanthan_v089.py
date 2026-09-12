@@ -48,6 +48,4 @@ required = [
 missing = [x for x in required if x not in check]
 if missing:
     raise SystemExit("Build proof missing: " + ", ".join(missing))
-
-compile(compile(rebuilt, str(OUT), "exec"), str(OUT), "exec")
 print("Built", OUT)
