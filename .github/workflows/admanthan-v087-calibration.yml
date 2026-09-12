@@ -12,12 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply v0.8.7 calibration
         env:
-          NEW_CHOOSE_EFFECTS: |
-            PLACEHOLDER
+          PAYLOAD_B64: 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
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import base64,gzip
           p=Path('docs/admanthan-dashboard/admanthan_browser.py')
           s=p.read_text()
           s=s.replace("VERSION='0.8.6-effect-quality-gate'", "VERSION='0.8.7-effect-calibration'")
@@ -32,8 +31,7 @@ jobs:
           s=s.replace("    if anyof(['macro','close-up','close up','detail','नज़दीक','डिटेल']): actions += ['macro_detail']", "    if anyof(['macro','macro shot','macro detail']): actions += ['macro_detail']\n    if anyof(['close-up','close up','detail','नज़दीक','डिटेल']): actions += ['close_up']")
           start=s.index('def choose_effects(rows,scene,limit=3):')
           end=s.index('def execute(rows,brief):', start)
-          newfunc=Path('/tmp/new_choose_effects.txt').read_text() if Path('/tmp/new_choose_effects.txt').exists() else None
-          if newfunc is None: raise SystemExit('new function payload missing')
+          newfunc=gzip.decompress(base64.b64decode(__import__('os').environ['PAYLOAD_B64'])).decode()
           s=s[:start]+newfunc+s[end:]
           p.write_text(s)
           PY
