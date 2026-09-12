@@ -1,8 +1,8 @@
 import { assertLineage } from "../../contracts/market-to-revenue-v01.js";
-import { GeminiMarketManthanSignalSource } from "./gemini-marketmanthan-v01.js";
+import { KalpGeminiMarketManthanSignalSource } from "./kalp-gemini-marketmanthan-v01.js";
 import { runMTR001Live } from "./mm-mtr-v01.js";
 
-const source = new GeminiMarketManthanSignalSource();
+const source = new KalpGeminiMarketManthanSignalSource();
 const slice = await runMTR001Live(source);
 assertLineage(slice);
 
