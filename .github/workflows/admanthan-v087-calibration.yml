@@ -1,0 +1,45 @@
+name: AdManthan v0.8.7 Calibration Patch
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'AdManthan v0.8.7') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply v0.8.7 calibration
+        env:
+          NEW_CHOOSE_EFFECTS: |
+            PLACEHOLDER
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('docs/admanthan-dashboard/admanthan_browser.py')
+          s=p.read_text()
+          s=s.replace("VERSION='0.8.6-effect-quality-gate'", "VERSION='0.8.7-effect-calibration'")
+          old="""    elif sc.startswith(('/wide_','/tele_','/macro_','/shallow_','/deep_','/anamorphic','/fisheye')): p['family']='optical'; p['functions'].add('optical')
+    elif sc.startswith(('/front_view','/rear_view','/left_view','/right_view','/three_quarter','/top_view','/bottom_view','/detail_view')): p['family']='product'; p['functions'].add('product_coverage')
+    elif sc.startswith('/macro_'): p['family']='macro'; p['functions'].add('macro_detail')"""
+          new="""    elif sc.startswith('/macro_'): p['family']='macro'; p['functions'].add('macro_detail'); p['functions'].add('optical')
+    elif sc.startswith(('/wide_','/tele_','/shallow_','/deep_','/anamorphic','/fisheye')): p['family']='optical'; p['functions'].add('optical')
+    elif sc.startswith(('/front_view','/rear_view','/left_view','/right_view','/three_quarter','/top_view','/bottom_view','/detail_view')): p['family']='product'; p['functions'].add('product_coverage')"""
+          if old not in s: raise SystemExit('effect_profile branch not found')
+          s=s.replace(old,new)
+          s=s.replace("    if anyof(['macro','close-up','close up','detail','नज़दीक','डिटेल']): actions += ['macro_detail']", "    if anyof(['macro','macro shot','macro detail']): actions += ['macro_detail']\n    if anyof(['close-up','close up','detail','नज़दीक','डिटेल']): actions += ['close_up']")
+          start=s.index('def choose_effects(rows,scene,limit=3):')
+          end=s.index('def execute(rows,brief):', start)
+          newfunc=Path('/tmp/new_choose_effects.txt').read_text() if Path('/tmp/new_choose_effects.txt').exists() else None
+          if newfunc is None: raise SystemExit('new function payload missing')
+          s=s[:start]+newfunc+s[end:]
+          p.write_text(s)
+          PY
+          python3 -m py_compile docs/admanthan-dashboard/admanthan_browser.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/admanthan-dashboard/admanthan_browser.py
+          git commit -m 'AdManthan v0.8.7: effect intelligence calibration' || exit 0
+          git push
