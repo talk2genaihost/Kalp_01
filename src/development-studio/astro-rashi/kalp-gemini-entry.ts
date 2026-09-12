@@ -11,11 +11,7 @@ interface Interpretation {
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>\"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[character] ?? character);
 }
 
@@ -23,8 +19,21 @@ function asList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
-async function interpret(payload: unknown): Promise<Interpretation> {
+async function getGatewayToken(): Promise<string> {
   if (!SUPABASE_ANON_KEY) throw new Error("KALP Gemini bridge is not configured in this build.");
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) throw new Error(`KALP Gateway authentication failed (${response.status}).`);
+  const body = await response.json() as { access_token?: string };
+  if (!body.access_token) throw new Error("KALP Gateway authentication did not return an access token.");
+  return body.access_token;
+}
+
+async function interpret(payload: unknown): Promise<Interpretation> {
+  const token = await getGatewayToken();
   const root = payload as Record<string, unknown>;
   const requested = root.requested ?? {};
   const data = root.data ?? {};
@@ -41,8 +50,8 @@ async function interpret(payload: unknown): Promise<Interpretation> {
   const response = await fetch(GATEWAY_ENDPOINT, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_ANON_KEY ?? "",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -84,24 +93,15 @@ if (answer) {
     if (!json || answer.dataset.kalpGeminiProcessed === "true") return;
     answer.dataset.kalpGeminiProcessed = "true";
     let payload: unknown;
-    try {
-      payload = JSON.parse(json.textContent ?? "{}");
-    } catch {
-      answer.dataset.kalpGeminiProcessed = "false";
-      return;
-    }
+    try { payload = JSON.parse(json.textContent ?? "{}"); }
+    catch { answer.dataset.kalpGeminiProcessed = "false"; return; }
     const loading = document.createElement("p");
     loading.className = "kalp-gemini-loading";
     loading.textContent = "KALP Gemini व्याख्या तैयार की जा रही है…";
     answer.appendChild(loading);
     void interpret(payload)
-      .then((result) => {
-        loading.remove();
-        renderInterpretation(result);
-      })
-      .catch((error) => {
-        loading.textContent = error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।";
-      });
+      .then((result) => { loading.remove(); renderInterpretation(result); })
+      .catch((error) => { loading.textContent = error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।"; });
   });
   observer.observe(answer, { childList: true, subtree: true });
 }
