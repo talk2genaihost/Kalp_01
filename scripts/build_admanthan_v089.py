@@ -8,11 +8,8 @@ out = Path("/tmp/published-site/admanthan/admanthan_browser.py")
 text = source.read_text(encoding="utf-8")
 gate_text = gate.read_text(encoding="utf-8")
 
-# The v0.8.8 engine defines execute() after choose_effects(). The previous
-# integration appended the semantic override after the whole source file.
-# That made the published artifact look like v0.8.9 while execute() could
-# still bind/use the pre-gate selector during runtime initialization.
-# Integrate the gate immediately after the v0.8.8 selector and BEFORE execute().
+# Integrate immediately before execute() so the generated runtime binds the
+# semantic selector before the production engine can execute it.
 marker = "\ndef execute("
 idx = text.find(marker)
 if idx < 0:
@@ -20,54 +17,62 @@ if idx < 0:
 
 integration = r'''
 
-# KALP AdManthan v0.8.9 runtime integration.
-# Semantic Production Fit is intrinsic to the generated runtime and executes
-# before the existing v0.8.8 shot-fit / necessity / diversity protections.
+# KALP AdManthan v0.8.9 intrinsic Semantic Production Fit integration.
+# Pipeline:
+#   600-library -> SEMANTIC_FIT(DIRECT only) -> v0.8.8 SHOT_FIT
+#   -> NECESSITY -> DIVERSITY -> SELECT -> NO PADDING.
+# SUPPORTING semantic fit is diagnostic-only and can NEVER enter the old
+# selector, because doing so would allow v0.8.8 to promote a supporting match.
 _KALP_V088_CHOOSE_EFFECTS = choose_effects
 
 ''' + gate_text + r'''
 
-# v0.8.9 public runtime designation.
 VERSION = "0.8.9-semantic-production-fit"
+KALP_V089_SEMANTIC_INTEGRATED = True
 
 
 def choose_effects(rows, scene, limit=3):
     semantic_rows = []
     diagnostics = []
+    counts = {"DIRECT": 0, "SUPPORTING": 0, "INCOMPATIBLE": 0}
+
     for row in rows or []:
         fit = evaluate_effect(scene, row)
         diagnostics.append(fit)
-        if fit.get("compatibility") != "INCOMPATIBLE":
+        state = fit.get("compatibility")
+        if state in counts:
+            counts[state] += 1
+        # v0.8.9 hard rule: only DIRECT semantic production fit proceeds to
+        # the existing v0.8.8 shot-fit / necessity / diversity selector.
+        if state == "DIRECT":
             semantic_rows.append(row)
 
     result = _KALP_V088_CHOOSE_EFFECTS(semantic_rows, scene, limit)
-    if isinstance(result, dict):
-        result["semantic_fit_stage"] = "EXECUTED"
-        result["semantic_fit_version"] = VERSION
-        result["semantic_fit_diagnostics"] = diagnostics
-        counts = {"DIRECT": 0, "SUPPORTING": 0, "INCOMPATIBLE": 0}
-        for item in diagnostics:
-            state = item.get("compatibility")
-            if state in counts:
-                counts[state] += 1
-        result["semantic_fit_counts"] = counts
+    result["semantic_fit_stage"] = "EXECUTED"
+    result["semantic_fit_version"] = VERSION
+    result["semantic_fit_counts"] = counts
+    result["semantic_fit_diagnostics"] = diagnostics
+    result["semantic_fit_direct_rows"] = len(semantic_rows)
     return result
 '''
 
 out_text = text[:idx] + integration + text[idx:]
 out.write_text(out_text, encoding="utf-8")
 
-# Build-time proof: the published runtime must expose the semantic stage and
-# diagnostics before the Pages artifact is accepted.
+# Build-time proof: fail the Pages build if the published runtime does not
+# contain the intrinsic gate, DIRECT-only handoff, and required diagnostics.
 required = [
     'VERSION = "0.8.9-semantic-production-fit"',
+    'KALP_V089_SEMANTIC_INTEGRATED = True',
+    'if state == "DIRECT":',
     '"semantic_fit_stage"',
-    '"semantic_fit_diagnostics"',
+    '"semantic_fit_version"',
     '"semantic_fit_counts"',
+    '"semantic_fit_diagnostics"',
     'stage": "SEMANTIC_FIT"',
 ]
 missing = [x for x in required if x not in out_text]
 if missing:
     raise RuntimeError("v0.8.9 integration proof failed: missing " + ", ".join(missing))
 
-print(f"Wrote intrinsic v0.8.9 runtime ({out.stat().st_size} bytes)")
+print(f"Wrote intrinsic v0.8.9 DIRECT-only runtime ({out.stat().st_size} bytes)")
