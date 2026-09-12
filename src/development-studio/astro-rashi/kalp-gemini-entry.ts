@@ -86,22 +86,37 @@ function renderInterpretation(value: Interpretation): void {
   answer.appendChild(section);
 }
 
+function processKundliResult(answer: HTMLElement): void {
+  if (answer.dataset.kalpGeminiProcessed === "true") return;
+  const json = answer.querySelector(".kundli-json");
+  if (!json) return;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(json.textContent ?? "{}");
+  } catch {
+    return;
+  }
+
+  answer.dataset.kalpGeminiProcessed = "true";
+  const loading = document.createElement("p");
+  loading.className = "kalp-gemini-loading";
+  loading.textContent = "KALP Gemini व्याख्या तैयार की जा रही है…";
+  answer.appendChild(loading);
+
+  void interpret(payload)
+    .then((result) => {
+      loading.remove();
+      renderInterpretation(result);
+    })
+    .catch((error) => {
+      loading.textContent = error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।";
+    });
+}
+
 const answer = document.getElementById("answer");
 if (answer) {
-  const observer = new MutationObserver(() => {
-    const json = answer.querySelector(".kundli-json");
-    if (!json || answer.dataset.kalpGeminiProcessed === "true") return;
-    answer.dataset.kalpGeminiProcessed = "true";
-    let payload: unknown;
-    try { payload = JSON.parse(json.textContent ?? "{}"); }
-    catch { answer.dataset.kalpGeminiProcessed = "false"; return; }
-    const loading = document.createElement("p");
-    loading.className = "kalp-gemini-loading";
-    loading.textContent = "KALP Gemini व्याख्या तैयार की जा रही है…";
-    answer.appendChild(loading);
-    void interpret(payload)
-      .then((result) => { loading.remove(); renderInterpretation(result); })
-      .catch((error) => { loading.textContent = error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।"; });
-  });
+  const observer = new MutationObserver(() => processKundliResult(answer));
   observer.observe(answer, { childList: true, subtree: true });
+  processKundliResult(answer);
 }
