@@ -13,8 +13,10 @@ jobs:
     steps:
       - name: Checkout repository without external action
         run: |
-          git clone --depth 0 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
-          git checkout "${GITHUB_SHA}"
+          git init .
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth 1 origin "${GITHUB_REF}"
+          git checkout --detach FETCH_HEAD
 
       - name: Verify runtime
         run: |
