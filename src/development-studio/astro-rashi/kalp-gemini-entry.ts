@@ -82,12 +82,15 @@ async function interpret(payload: unknown): Promise<Interpretation> {
     },
     body: JSON.stringify({
       provider: "gemini",
-      gemini_models: ["gemini-3.7-flash", "gemini-2.5-flash"],
+      gemini_models: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-2.5-flash"],
       prompt,
     }),
   });
-  const body = await response.json() as { output?: string; message?: string };
-  if (!response.ok || !body.output) throw new Error(body.message ?? `KALP Gemini request failed (${response.status}).`);
+  const body = await response.json() as { output?: string; message?: string; attempts?: unknown[] };
+  if (!response.ok || !body.output) {
+    const detail = Array.isArray(body.attempts) && body.attempts.length ? ` ${body.attempts.map((attempt) => JSON.stringify(attempt)).join(" ")}` : "";
+    throw new Error((body.message ?? `KALP Gemini request failed (${response.status}).`) + detail);
+  }
   const parsed = JSON.parse(body.output) as Interpretation;
   return {
     summary: typeof parsed.summary === "string" ? parsed.summary : undefined,
@@ -97,9 +100,7 @@ async function interpret(payload: unknown): Promise<Interpretation> {
   };
 }
 
-function renderInterpretation(value: Interpretation): void {
-  const answer = document.getElementById("answer");
-  if (!answer) return;
+function renderInterpretation(value: Interpretation, answer: HTMLElement): void {
   const section = document.createElement("section");
   section.className = "kalp-gemini-interpretation";
   section.innerHTML = `
@@ -109,7 +110,9 @@ function renderInterpretation(value: Interpretation): void {
     ${value.cautions?.length ? `<strong>सावधानियाँ</strong><ul>${value.cautions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
     ${value.focus?.length ? `<strong>ध्यान के क्षेत्र</strong><ul>${value.focus.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
     <small>AI interpretation via KALP Intelligence Gateway · Gemini</small>`;
-  answer.appendChild(section);
+  const details = answer.querySelector(".kundli-result > details, details");
+  if (details) answer.insertBefore(section, details);
+  else answer.insertBefore(section, answer.firstChild);
 }
 
 function processKundliResult(answer: HTMLElement): void {
@@ -125,18 +128,20 @@ function processKundliResult(answer: HTMLElement): void {
   }
 
   answer.dataset.kalpGeminiProcessed = "true";
-  const loading = document.createElement("p");
-  loading.className = "kalp-gemini-loading";
-  loading.textContent = "KALP Gemini व्याख्या तैयार की जा रही है…";
-  answer.appendChild(loading);
+  const loading = document.createElement("section");
+  loading.className = "kalp-gemini-interpretation kalp-gemini-loading";
+  loading.innerHTML = `<h3>KALP Gemini व्याख्या</h3><p>AI व्याख्या तैयार की जा रही है…</p>`;
+  const details = answer.querySelector("details");
+  if (details) answer.insertBefore(loading, details);
+  else answer.insertBefore(loading, answer.firstChild);
 
   void interpret(payload)
     .then((result) => {
       loading.remove();
-      renderInterpretation(result);
+      renderInterpretation(result, answer);
     })
     .catch((error) => {
-      loading.textContent = error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।";
+      loading.innerHTML = `<h3>KALP Gemini व्याख्या</h3><p>${escapeHtml(error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।")}</p>`;
     });
 }
 
