@@ -4,9 +4,17 @@ const GATEWAY_ENDPOINT = `${SUPABASE_URL}/functions/v1/kalp-intelligence-gateway
 
 interface Interpretation {
   summary?: string;
+  personality?: string[];
+  career?: string[];
+  relationships?: string[];
+  finance?: string[];
+  dasha?: string[];
+  nakshatra?: string[];
+  yogas?: string[];
   strengths?: string[];
   cautions?: string[];
   focus?: string[];
+  guidance?: string[];
 }
 
 function escapeHtml(value: string): string {
@@ -63,14 +71,17 @@ async function interpret(payload: unknown): Promise<Interpretation> {
   const name = (document.getElementById("birthName") as HTMLInputElement | null)?.value.trim() ?? "";
   const sex = (document.getElementById("birthSex") as HTMLSelectElement | null)?.value ?? "";
   const prompt = [
-    "You are the KALP Astro Rashi interpretation layer.",
-    "Interpret only the supplied Vedic chart facts; never invent missing placements.",
-    "Use cautious, non-deterministic language. This is an interpretive reading, not medical, financial, legal, or guaranteed predictive advice.",
-    "Return JSON only with keys: summary (string), strengths (string[]), cautions (string[]), focus (string[]).",
-    "Write the response in conversational Hindi.",
+    "You are the KALP Astro Rashi interpretation layer for a detailed Vedic astrology reading.",
+    "Use only the supplied Vedic chart/provider facts. Never invent a planet, house, sign, nakshatra, yoga, dasha, degree, aspect, or placement that is not present in the supplied data.",
+    "Explain what the supplied facts can reasonably indicate, and explicitly avoid overclaiming when data is missing.",
+    "Use cautious, non-deterministic language such as 'संकेत मिलते हैं', 'संभावना हो सकती है', or 'यह प्रवृत्ति दिखाई देती है'. Do not present astrology as scientific certainty.",
+    "Do not provide medical diagnosis/treatment, guaranteed predictions, legal advice, or guaranteed financial outcomes. For finance, discuss behavioral tendencies only, not investment instructions. For relationships, discuss communication and tendencies, not guaranteed events.",
+    "Return JSON only with exactly these keys: summary (string), personality (string[]), career (string[]), relationships (string[]), finance (string[]), dasha (string[]), nakshatra (string[]), yogas (string[]), strengths (string[]), cautions (string[]), focus (string[]), guidance (string[]).",
+    "Write all values in natural, conversational Hindi. Keep each bullet informative but concise. Aim for 2-4 bullets in each section when the supplied facts support it; otherwise return a shorter list.",
+    "The reading should feel like a complete personal chart overview, not a generic zodiac horoscope.",
     `Person details: ${JSON.stringify({ name, sex })}`,
     `Requested birth context: ${JSON.stringify(requested)}`,
-    `Normalized provider data: ${JSON.stringify(data)}`,
+    `Full normalized provider data: ${JSON.stringify(data)}`,
   ].join("\n\n");
 
   const response = await fetch(GATEWAY_ENDPOINT, {
@@ -94,22 +105,48 @@ async function interpret(payload: unknown): Promise<Interpretation> {
   const parsed = JSON.parse(body.output) as Interpretation;
   return {
     summary: typeof parsed.summary === "string" ? parsed.summary : undefined,
+    personality: asList(parsed.personality),
+    career: asList(parsed.career),
+    relationships: asList(parsed.relationships),
+    finance: asList(parsed.finance),
+    dasha: asList(parsed.dasha),
+    nakshatra: asList(parsed.nakshatra),
+    yogas: asList(parsed.yogas),
     strengths: asList(parsed.strengths),
     cautions: asList(parsed.cautions),
     focus: asList(parsed.focus),
+    guidance: asList(parsed.guidance),
   };
+}
+
+function renderListSection(title: string, items: string[]): string {
+  if (!items.length) return "";
+  return `<div class="kalp-gemini-section"><h4>${escapeHtml(title)}</h4><ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`;
 }
 
 function renderInterpretation(value: Interpretation, answer: HTMLElement): void {
   const section = document.createElement("section");
   section.className = "kalp-gemini-interpretation";
   section.innerHTML = `
-    <h3>KALP Gemini व्याख्या</h3>
-    <p>${escapeHtml(value.summary ?? "इस चार्ट के लिए पर्याप्त व्याख्यात्मक तथ्य उपलब्ध नहीं हैं।")}</p>
-    ${value.strengths?.length ? `<strong>मुख्य संकेत</strong><ul>${value.strengths.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-    ${value.cautions?.length ? `<strong>सावधानियाँ</strong><ul>${value.cautions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-    ${value.focus?.length ? `<strong>ध्यान के क्षेत्र</strong><ul>${value.focus.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
-    <small>AI interpretation via KALP Intelligence Gateway · Gemini</small>`;
+    <div class="kalp-gemini-header">
+      <div><span class="kalp-gemini-eyebrow">KALP · Gemini</span><h3>विस्तृत वैदिक व्याख्या</h3></div>
+      <span class="kalp-gemini-badge">AI Interpretation</span>
+    </div>
+    <p class="kalp-gemini-summary">${escapeHtml(value.summary ?? "इस चार्ट के लिए पर्याप्त व्याख्यात्मक तथ्य उपलब्ध नहीं हैं।")}</p>
+    <div class="kalp-gemini-sections">
+      ${renderListSection("व्यक्तित्व और स्वभाव", value.personality ?? [])}
+      ${renderListSection("करियर और कार्यशैली", value.career ?? [])}
+      ${renderListSection("रिश्ते और संचार", value.relationships ?? [])}
+      ${renderListSection("धन और वित्तीय प्रवृत्तियाँ", value.finance ?? [])}
+      ${renderListSection("दशा के संकेत", value.dasha ?? [])}
+      ${renderListSection("नक्षत्र के संकेत", value.nakshatra ?? [])}
+      ${renderListSection("योगों के संकेत", value.yogas ?? [])}
+      ${renderListSection("मुख्य शक्तियाँ", value.strengths ?? [])}
+      ${renderListSection("सावधानियाँ", value.cautions ?? [])}
+      ${renderListSection("अभी ध्यान देने के क्षेत्र", value.focus ?? [])}
+      ${renderListSection("व्यावहारिक मार्गदर्शन", value.guidance ?? [])}
+    </div>
+    <small>यह व्याख्या उपलब्ध वैदिक चार्ट डेटा पर आधारित AI interpretation है; इसे निश्चित भविष्यवाणी या पेशेवर सलाह न माना जाए।</small>`;
   const details = answer.querySelector(".kundli-result > details, details");
   if (details) answer.insertBefore(section, details);
   else answer.insertBefore(section, answer.firstChild);
@@ -130,7 +167,7 @@ function processKundliResult(answer: HTMLElement): void {
   answer.dataset.kalpGeminiProcessed = "true";
   const loading = document.createElement("section");
   loading.className = "kalp-gemini-interpretation kalp-gemini-loading";
-  loading.innerHTML = `<h3>KALP Gemini व्याख्या</h3><p>AI व्याख्या तैयार की जा रही है…</p>`;
+  loading.innerHTML = `<h3>विस्तृत KALP Gemini व्याख्या</h3><p>चार्ट के उपलब्ध संकेतों का विस्तृत विश्लेषण तैयार किया जा रहा है…</p>`;
   const details = answer.querySelector("details");
   if (details) answer.insertBefore(loading, details);
   else answer.insertBefore(loading, answer.firstChild);
@@ -141,7 +178,7 @@ function processKundliResult(answer: HTMLElement): void {
       renderInterpretation(result, answer);
     })
     .catch((error) => {
-      loading.innerHTML = `<h3>KALP Gemini व्याख्या</h3><p>${escapeHtml(error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।")}</p>`;
+      loading.innerHTML = `<h3>विस्तृत KALP Gemini व्याख्या</h3><p>${escapeHtml(error instanceof Error ? error.message : "KALP Gemini व्याख्या उपलब्ध नहीं है।")}</p>`;
     });
 }
 
