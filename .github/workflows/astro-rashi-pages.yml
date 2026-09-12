@@ -31,14 +31,29 @@ jobs:
       - name: Build Astro Rashi browser slice
         working-directory: repo
         run: npm run build:astro-rashi
-      - name: Build AdManthan v0.8.9 runtime
+      - name: Build and smoke-test AdManthan v0.8.9 publish artifact
         working-directory: repo
         run: |
           set -eu
-          python scripts/build_admanthan_v089.py
-          grep -q 'VERSION = "0.8.9-semantic-production-fit"' docs/admanthan-dashboard/admanthan_browser.py
-          grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' docs/admanthan-dashboard/admanthan_browser.py
-          python -m py_compile docs/admanthan-dashboard/admanthan_browser.py
+          rm -rf /tmp/admanthan-v089
+          mkdir -p /tmp/admanthan-v089
+          KALP_V089_OUT=/tmp/admanthan-v089/admanthan_browser.py python scripts/build_admanthan_v089.py
+          grep -q 'VERSION = "0.8.9-semantic-production-fit"' /tmp/admanthan-v089/admanthan_browser.py
+          grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' /tmp/admanthan-v089/admanthan_browser.py
+          python -m py_compile /tmp/admanthan-v089/admanthan_browser.py
+          python - <<'PY'
+          import importlib.util
+          p = "/tmp/admanthan-v089/admanthan_browser.py"
+          spec = importlib.util.spec_from_file_location("admanthan_v089", p)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          assert getattr(m, "VERSION", None) == "0.8.9-semantic-production-fit"
+          assert getattr(m, "KALP_V089_SEMANTIC_INTEGRATED", False) is True
+          assert hasattr(m, "_KALP_V088_CHOOSE_EFFECTS")
+          assert hasattr(m, "evaluate_effect")
+          assert callable(getattr(m, "choose_effects", None))
+          print("AdManthan v0.8.9 runtime import smoke test: PASS")
+          PY
       - name: Assemble published applications
         working-directory: repo
         run: |
@@ -50,11 +65,23 @@ jobs:
           cp -R /tmp/weather-source/weather-dashboard/. /tmp/published-site/weather-dashboard/
           cp -R dist/astro-rashi/. /tmp/published-site/astro-rashi/
           cp -R docs/admanthan-dashboard/. /tmp/published-site/admanthan/
+          cp /tmp/admanthan-v089/admanthan_browser.py /tmp/published-site/admanthan/admanthan_browser.py
           cp docs/admanthan-dashboard/studio.html /tmp/published-site/admanthan/index.html
           sed -i 's/admanthan_browser.py?v=0.8.5/admanthan_browser.py?v=0.8.9/' /tmp/published-site/admanthan/index.html
           grep -q 'VERSION = "0.8.9-semantic-production-fit"' /tmp/published-site/admanthan/admanthan_browser.py
           grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' /tmp/published-site/admanthan/admanthan_browser.py
           python -m py_compile /tmp/published-site/admanthan/admanthan_browser.py
+          python - <<'PY'
+          import importlib.util
+          p = "/tmp/published-site/admanthan/admanthan_browser.py"
+          spec = importlib.util.spec_from_file_location("published_admanthan_v089", p)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          assert getattr(m, "VERSION", None) == "0.8.9-semantic-production-fit"
+          assert getattr(m, "KALP_V089_SEMANTIC_INTEGRATED", False) is True
+          assert hasattr(m, "_KALP_V088_CHOOSE_EFFECTS")
+          print("Published AdManthan v0.8.9 artifact smoke test: PASS")
+          PY
           cat > /tmp/published-site/index.html <<'EOF'
           <!doctype html>
           <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>KALP Applications</title></head>
