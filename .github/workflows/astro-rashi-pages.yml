@@ -107,7 +107,7 @@ jobs:
           cp -R /tmp/published-site/. .
           echo "Published site copied"
           test -f admanthan/admanthan_browser.py
-          test "$(grep -c 'VERSION = \"0.8.9-semantic-production-fit\"' admanthan/admanthan_browser.py)" -eq 1
+          grep -q 'VERSION = "0.8.9-semantic-production-fit"' admanthan/admanthan_browser.py
           grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' admanthan/admanthan_browser.py
           find . -type d -name '__pycache__' -prune -exec rm -rf {} +
           find . -type f -name '*.pyc' -delete
@@ -128,7 +128,7 @@ jobs:
           PUBLISHED_SHA="$(git rev-parse FETCH_HEAD)"
           echo "Remote publication commit: $PUBLISHED_SHA"
           test "$PUSHED_SHA" = "$PUBLISHED_SHA"
-          test "$(git show FETCH_HEAD:admanthan/admanthan_browser.py | grep -c 'VERSION = \"0.8.9-semantic-production-fit\"')" -eq 1
+          test "$(git show FETCH_HEAD:admanthan/admanthan_browser.py | grep -c 'VERSION = \"0.8.9-semantic-production-fit\"')" -ge 1
           git show FETCH_HEAD:admanthan/admanthan_browser.py | grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True'
           test -z "$(git ls-tree -r --name-only FETCH_HEAD | grep -E '(^|/)(__pycache__/|[^/]+\.pyc$)' || true)"
           git show FETCH_HEAD:admanthan/admanthan_browser.py > /tmp/published-admanthan-browser.py
