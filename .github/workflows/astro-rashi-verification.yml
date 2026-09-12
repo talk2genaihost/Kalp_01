@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Checkout repository without external action
         run: |
-          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
+          git clone --depth 0 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
           git checkout "${GITHUB_SHA}"
 
       - name: Verify runtime
