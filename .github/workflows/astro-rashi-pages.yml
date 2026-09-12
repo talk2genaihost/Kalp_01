@@ -100,8 +100,9 @@ jobs:
           rm -rf /tmp/deploy-repo
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/deploy-repo
           cd /tmp/deploy-repo
-          git fetch origin gh-pages:refs/remotes/origin/gh-pages || true
-          git checkout --orphan gh-pages
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          git clean -fdx
           git rm -rf . >/dev/null 2>&1 || true
           cp -R /tmp/published-site/. .
           find . -type d -name '__pycache__' -prune -exec rm -rf {} +
@@ -116,10 +117,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy KALP Applications to GitHub Pages"
+          PUSHED_SHA="$(git rev-parse HEAD)"
           git push --force origin gh-pages
           git fetch origin gh-pages
           PUBLISHED_SHA="$(git rev-parse origin/gh-pages)"
-          test "$(git rev-parse HEAD)" = "$PUBLISHED_SHA"
+          test "$PUSHED_SHA" = "$PUBLISHED_SHA"
           test "$(grep -c 'VERSION = \"0.8.9-semantic-production-fit\"' admanthan/admanthan_browser.py)" -eq 1
           grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' admanthan/admanthan_browser.py
           test -z "$(find . -type f -name '*.pyc' -print -quit)"
