@@ -98,12 +98,11 @@ jobs:
         run: |
           set -eu
           rm -rf /tmp/deploy-repo
-          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/deploy-repo
+          mkdir -p /tmp/deploy-repo
           cd /tmp/deploy-repo
-          git fetch origin gh-pages
-          git checkout -B gh-pages FETCH_HEAD
-          git clean -fdx
-          git rm -rf . >/dev/null 2>&1 || true
+          git init
+          git checkout -b gh-pages
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           cp -R /tmp/published-site/. .
           find . -type d -name '__pycache__' -prune -exec rm -rf {} +
           find . -type f -name '*.pyc' -delete
@@ -115,20 +114,22 @@ jobs:
           rm -rf admanthan/__pycache__
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
+          git add -A
           git commit -m "Deploy KALP Applications to GitHub Pages"
           PUSHED_SHA="$(git rev-parse HEAD)"
           git push --force origin gh-pages
           git fetch origin gh-pages
-          PUBLISHED_SHA="$(git rev-parse origin/gh-pages)"
+          PUBLISHED_SHA="$(git rev-parse FETCH_HEAD)"
           test "$PUSHED_SHA" = "$PUBLISHED_SHA"
-          test "$(grep -c 'VERSION = \"0.8.9-semantic-production-fit\"' admanthan/admanthan_browser.py)" -eq 1
-          grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True' admanthan/admanthan_browser.py
-          test -z "$(find . -type f -name '*.pyc' -print -quit)"
-          test -z "$(find . -type d -name '__pycache__' -print -quit)"
+          test "$(git show FETCH_HEAD:admanthan/admanthan_browser.py | grep -c 'VERSION = \"0.8.9-semantic-production-fit\"')" -eq 1
+          git show FETCH_HEAD:admanthan/admanthan_browser.py | grep -q 'KALP_V089_SEMANTIC_INTEGRATED = True'
+          test -z "$(git ls-tree -r --name-only FETCH_HEAD | grep -E '(^|/)(__pycache__/|[^/]+\.pyc$)' || true)"
+          git show FETCH_HEAD:admanthan/admanthan_browser.py > /tmp/published-admanthan-browser.py
+          python -m py_compile /tmp/published-admanthan-browser.py
+          rm -rf /tmp/published-admanthan-browser.py.__pycache__
           python - <<'PY'
           import importlib.util
-          p = "admanthan/admanthan_browser.py"
+          p = "/tmp/published-admanthan-browser.py"
           spec = importlib.util.spec_from_file_location("published_gh_pages_admanthan_v089", p)
           m = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(m)
