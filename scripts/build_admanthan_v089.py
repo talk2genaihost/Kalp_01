@@ -29,7 +29,7 @@ prefix = source[:choose_start]
 base_choose = source[choose_start:execute_pos]
 rest = source[execute_pos:]
 
-integration = f'''\n# KALP v0.8.9 — Semantic Production Fit Gate\n{gate}\n\n# Preserve the complete v0.8.8 selector before overriding the entry point.\n_KALP_V088_CHOOSE_EFFECTS = choose_effects\nKALP_V089_SEMANTIC_INTEGRATED = True\nVERSION = "0.8.9-semantic-production-fit"\n\ndef choose_effects(rows, scene, limit=3):\n    semantic_rows = []\n    diagnostics = []\n    counts = {{"DIRECT": 0, "SUPPORTING": 0, "INCOMPATIBLE": 0}}\n\n    for row in rows or []:\n        fit = evaluate_effect(scene, row)\n        diagnostics.append(fit)\n        state = fit.get("compatibility")\n        if state in counts:\n            counts[state] += 1\n        if state == "DIRECT":\n            semantic_rows.append(row)\n\n    # SUPPORTING fits are diagnostic-only. They must never cause an effect\n    # to be selected, and no padding is introduced when DIRECT fits are absent.\n    result = _KALP_V088_CHOOSE_EFFECTS(semantic_rows, scene, limit)\n    result["semantic_fit_stage"] = "EXECUTED"\n    result["semantic_fit_version"] = VERSION\n    result["semantic_fit_counts"] = counts\n    result["semantic_fit_diagnostics"] = diagnostics\n    result["semantic_fit_direct_rows"] = len(semantic_rows)\n    return result\n'''
+integration = f'''\n# KALP v0.8.9 — Semantic Production Fit Gate\n{gate}\n\n# Preserve the complete v0.8.8 selector before overriding the entry point.\n# v0.8.8 choose_effects() returns (selected, diagnostics), so v0.8.9\n# preserves that public contract and enriches the diagnostics tuple.\n_KALP_V088_CHOOSE_EFFECTS = choose_effects\nKALP_V089_SEMANTIC_INTEGRATED = True\nVERSION = "0.8.9-semantic-production-fit"\n\ndef choose_effects(rows, scene, limit=3):\n    semantic_rows = []\n    semantic_diagnostics = []\n    counts = {{"DIRECT": 0, "SUPPORTING": 0, "INCOMPATIBLE": 0}}\n\n    for row in rows or []:\n        fit = evaluate_effect(scene, row)\n        semantic_diagnostics.append(fit)\n        state = fit.get("compatibility")\n        if state in counts:\n            counts[state] += 1\n        if state == "DIRECT":\n            semantic_rows.append(row)\n\n    # SUPPORTING fits are diagnostic-only. They must never cause an effect\n    # to be selected, and no padding is introduced when DIRECT fits are absent.\n    selected, shot_fit_diagnostics = _KALP_V088_CHOOSE_EFFECTS(semantic_rows, scene, limit)\n    diagnostics = {{\n        **(shot_fit_diagnostics or {{}}),\n        "semantic_fit_stage": "EXECUTED",\n        "semantic_fit_version": VERSION,\n        "semantic_fit_counts": counts,\n        "semantic_fit_diagnostics": semantic_diagnostics,\n        "semantic_fit_direct_rows": len(semantic_rows),\n    }}\n    return selected, diagnostics\n'''
 
 rebuilt = prefix + base_choose + integration + rest
 OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +44,8 @@ required = [
     'if state == "DIRECT":',
     'def evaluate_effect(',
     '_KALP_V088_CHOOSE_EFFECTS = choose_effects',
+    'selected, shot_fit_diagnostics = _KALP_V088_CHOOSE_EFFECTS',
+    'return selected, diagnostics',
 ]
 missing = [x for x in required if x not in check]
 if missing:
