@@ -11,10 +11,21 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository without external action
+      - name: Checkout source ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
-          git checkout "${GITHUB_SHA}"
+          set -euo pipefail
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if [ -n "${PR_NUMBER}" ]; then
+            git fetch --depth 1 origin "refs/pull/${PR_NUMBER}/head"
+            git checkout FETCH_HEAD
+          else
+            git fetch --depth 1 origin "${GITHUB_SHA}"
+            git checkout FETCH_HEAD
+          fi
 
       - name: Verify runtime
         run: |
@@ -32,3 +43,16 @@ jobs:
 
       - name: Test suite
         run: npm test
+
+      - name: Gini v0.1 smoke tests
+        working-directory: genie/v0.1
+        run: |
+          python3 --version
+          python3 -m pip install --upgrade pytest
+          PYTHONPATH=. python3 -m pytest -q
+
+      - name: Gini v0.1 1000-scenario stress test
+        working-directory: genie/v0.1
+        env:
+          GINI_STRESS_SCENARIOS: '1000'
+        run: PYTHONPATH=. python3 -m pytest -q tests/test_stress.py -s

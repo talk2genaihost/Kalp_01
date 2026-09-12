@@ -1,0 +1,9 @@
+{
+  "artifact": "KALP Gini v0.1 Schema Lock",
+  "schema_version": "0.1.0",
+  "status": "FROZEN",
+  "frozen_contracts": ["CreativeRequest", "CreativeContext", "CreativePlan", "Scene", "Asset", "Engine", "GenerationJob", "CreativeQA", "RevisionPlan", "DeliveryPackage"],
+  "execution_boundary": "Idea -> Plan -> 18 Scenes",
+  "generation_engines": "provider-independent boundary",
+  "moneyprinterturbo_dependency": false
+}
