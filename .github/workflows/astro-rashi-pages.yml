@@ -28,8 +28,20 @@ jobs:
       - name: Install dependencies
         working-directory: repo
         run: npm install --no-audit --no-fund
+      - name: Validate public Supabase build key
+        env:
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -eu
+          if [ -z "${VITE_SUPABASE_ANON_KEY:-}" ]; then
+            echo "SUPABASE_ANON_KEY GitHub Actions secret is required for the Astro Rashi browser build."
+            exit 1
+          fi
+          echo "Supabase browser key is configured for the build."
       - name: Build Astro Rashi browser slice
         working-directory: repo
+        env:
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npm run build:astro-rashi
       - name: Build and smoke-test AdManthan v0.8.9 publish artifact
         working-directory: repo
