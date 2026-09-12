@@ -31,7 +31,8 @@ def scene_profile(scene):
     text=' '.join([scene.get('story_purpose',''),scene.get('visual_direction',''),scene.get('vo',''),scene.get('sound_direction',''),scene.get('on_screen','')]); low=norm(text)
     def anyof(xs): return any(x in low for x in xs)
     actions=[]
-    if anyof(['write','writing','scrib','pen moves','lिख','लिख','कलम','स्याही']): actions += ['writing','product_demo']
+    if anyof(['product','pen','erasable','प्रोडक्ट','पेन']): actions += ['product_demo']
+    if anyof(['write','writing','scrib','pen moves','pen tip moves','lिख','लिख','कलम','स्याही']): actions += ['writing','product_demo']
     if anyof(['erase','erasing','rub','remove','मिट','रगड़','erase mark']): actions += ['erasing','product_demo']
     if anyof(['reveal','unveil','open','pack','box','unbox','खुल']): actions += ['reveal']
     if anyof(['rotate','spin','360','turntable']): actions += ['product_rotation']
@@ -82,17 +83,28 @@ def choose_effects(rows,scene,limit=3):
         if incompatible:
             rejected.append({'shortcut':row.get('Shortcut'),'stage':'HARD_INCOMPATIBILITY','reason':'Effect family incompatible with scene action: '+','.join(sorted(incompatible))}); continue
         score=0; reasons=[]
-        if ('writing' in actions or 'erasing' in actions):
-            if explicit_macro and 'macro_detail' in funcs: score+=6; reasons.append('explicit macro-detail match')
-            elif explicit_camera and 'camera_motion' in funcs: score+=5; reasons.append('explicit camera-direction match')
-            elif funcs & {'product_coverage','product_motion'}: score+=5; reasons.append('physical product-action coverage match')
+        if explicit_hero:
+            if 'branding' in ep['roles'] and funcs & {'graphics','product_coverage','camera_motion','lighting'}: score+=7; reasons.append('hero/brand production-role match')
+            elif funcs & {'product_coverage','camera_motion','lighting'}: score+=6; reasons.append('hero product presentation match')
             else:
-                rejected.append({'shortcut':row.get('Shortcut'),'stage':'OBJECT_ACTION_COMPATIBILITY','reason':'No direct pen-writing/erasing production function.'}); continue
+                rejected.append({'shortcut':row.get('Shortcut'),'stage':'PRODUCTION_ROLE_MATCH','reason':'Hero scene requires a visual presentation function, not a generic action/effect.'}); continue
+        elif ('writing' in actions or 'erasing' in actions):
+            if explicit_macro:
+                if 'macro_detail' in funcs: score+=6; reasons.append('explicit macro-detail match')
+                else:
+                    rejected.append({'shortcut':row.get('Shortcut'),'stage':'OBJECT_ACTION_COMPATIBILITY','reason':'Macro shot requires a macro-detail function; non-macro product views are rejected.'}); continue
+            elif explicit_camera and 'camera_motion' in funcs:
+                score+=5; reasons.append('explicit camera-direction match')
+            elif 'product_coverage' in funcs and any(t in sp['low'] for t in ['product close','product view','product coverage','product presentation']):
+                score+=5; reasons.append('explicit product-coverage match')
+            elif 'product_motion' in funcs and any(t in sp['low'] for t in ['rotate','spin','turntable','transform','reveal']):
+                score+=5; reasons.append('explicit product-motion match')
+            else:
+                rejected.append({'shortcut':row.get('Shortcut'),'stage':'OBJECT_ACTION_COMPATIBILITY','reason':'No direct pen-writing/erasing production function for the stated shot.'}); continue
         elif explicit_macro and 'macro_detail' in funcs: score+=6; reasons.append('macro function match')
         elif explicit_camera and 'camera_motion' in funcs: score+=5; reasons.append('camera function match')
         elif explicit_edit and 'edit_transition' in funcs: score+=6; reasons.append('edit function match')
         elif explicit_audio and 'audio' in funcs: score+=6; reasons.append('audio function match')
-        elif explicit_hero and ('branding' in ep['roles'] or funcs & {'graphics','product_coverage','camera_motion','lighting'}): score+=6; reasons.append('hero/brand production-role match')
         elif explicit_paper and any(t in ep['tokens'] for t in ['paper','sheet','page','desk']): score+=5; reasons.append('paper-context match')
         elif 'product_demo' in actions:
             if 'product_demo' in ep['roles'] and funcs & {'product_coverage','product_motion','macro_detail'}: score+=5; reasons.append('product-demo role match')
