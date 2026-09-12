@@ -100,6 +100,7 @@ jobs:
           rm -rf /tmp/deploy-repo
           git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/deploy-repo
           cd /tmp/deploy-repo
+          git fetch origin gh-pages:refs/remotes/origin/gh-pages || true
           git checkout --orphan gh-pages
           git rm -rf . >/dev/null 2>&1 || true
           cp -R /tmp/published-site/. .
